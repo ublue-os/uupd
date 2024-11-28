@@ -1,0 +1,48 @@
+name: integration testing
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  push-ghcr:
+    name: Build and test image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        major_version: [40, 41]
+        include:
+          - major_version: 40
+            is_latest_version: false
+            is_stable_version: true
+          - major_version: 41
+            is_latest_version: true
+            is_stable_version: false
+    steps:
+      # Checkout push-to-registry action GitHub repository
+      - name: Checkout Push to Registry action
+        uses: actions/checkout@v4
+
+      - name: Install Deps
+        run: |
+          sudo apt-get install just podman
+
+      - name: Build Image
+        id: build_image
+        env:
+          FEDORA_MAJOR_VERSION: ${{ matrix.major_version }}
+        run: |
+          just container-build
+
+      - name: Test Image
+        id: test_image
+        run: |
+          just container-test

@@ -1,0 +1,72 @@
+name: build release package
+on:
+  merge_group:
+    branches:
+      - main
+  workflow_dispatch:
+env:
+    IMAGE_NAME: ublue-update
+    IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  release-please:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release-please.outputs.releases_created }}
+      tag: ${{ steps.release-please.outputs.tag_name }}
+      upload_url: ${{ steps.release-please.outputs.upload_url }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release-please
+        with:
+          release-type: simple
+          package-name: release-please-action
+
+  build-release:
+    name: Build and push rpm package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    needs: release-please
+    if: needs.release-please.outputs.releases_created
+    steps:
+      # Checkout push-to-registry action GitHub repository
+      - name: Checkout Push to Registry action
+        uses: actions/checkout@v4
+
+      # Build image using Buildah action
+      - name: Build package using containerized build environment
+        id: build_image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          containerfiles: |
+            ./Containerfile.builder
+          image: ${{ env.IMAGE_NAME }}
+          tags: |
+            ${{ needs.release-please.outputs.tag }}
+          oci: true
+          extra-args: |
+            -v ${{ github.workspace }}:/app
+            --target rpm
+
+      - name: upload output artifacts as release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ublue-updater-rpms
+          path: output/
+
+      - name: upload rpm packages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          find output/ -type f -name '*.rpm' -print0 | \
+            xargs -0 -tI{} gh release upload \
+              ${{ needs.release-please.outputs.tag }} \
+              {} \
+              --repo ${{ github.repository_owner }}/${{ github.event.repository.name }} \
+              --clobber
