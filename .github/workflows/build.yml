@@ -1,10 +1,16 @@
 name: build development package
 on:
   pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
   merge_group:
   push:
     branches:
       - main
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
 env:
     IMAGE_NAME: uupd

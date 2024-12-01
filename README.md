@@ -6,7 +6,7 @@ Includes systemd timers and services for auto update
 
 # Installation
 
-This be in the [ublue-os/staging COPR](), until then you can install from Containerfile:
+This be in the [ublue-os/staging COPR](https://copr.fedorainfracloud.org/coprs/ublue-os/staging/), until then you can install from Containerfile:
 ```dockerfile
   COPY --from=ghcr.io/ublue-os/uupd:{FEDORA_MAJOR_VERSION} /rpms /tmp/rpms 
   # You can use dnf5 to install packages on the image instead 
