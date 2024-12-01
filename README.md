@@ -42,15 +42,15 @@ $ sudo uupd
 
 # Troubleshooting
 
-You can check the ublue-update logs by running this command:
+You can check the uupd logs by running this command:
 ```
 $ journalctl -exu 'uupd.service'
 ```
 
 # How do I build this?
 
-1. `just build` will build this project and place the binary in `output/ublue-upd`
-1. `sudo ./output/ublue-upd` will run an update
+1. `just build` will build this project and place the binary in `output/uupd`
+1. `sudo ./output/uupd` will run an update
 1. You can install this to the system by copying the rules
 
 # FAQ
