@@ -6,8 +6,12 @@ Includes systemd timers and services for auto update
 
 # Installation
 
-There will eventually be a COPR with the RPM
-In the meantime it's possible to build the binary statically and copy the files (binary, polkit rules, and systemd units) refer to [How do I build this](#How-do-I-build-this?) for more info
+This be in the [ublue-os/staging COPR](), until then you can install from Containerfile:
+```dockerfile
+  COPY --from=ghcr.io/ublue-os/uupd:{FEDORA_MAJOR_VERSION} /rpms /tmp/rpms 
+  # You can use dnf5 to install packages on the image instead 
+  RUN rpm-ostree install /tmp/rpms/*.rpm
+```
 
 > **Note**
 > If you are on an image derived from uBlue main, you will need to remove or disable automatic updates with rpm-ostreed, to do this, you need to remove or change this line in the config file: `AutomaticUpdatePolicy=stage` (set to `none` if you don't want to remove the line)
@@ -30,8 +34,10 @@ This allows for passwordless system updates (user must be in `wheel` group)
 $ sudo uupd
 ```
 
-```
+# CLI Options
 
+```
+  $ sudo uupd --help
 ```
 
 # Troubleshooting
@@ -45,6 +51,7 @@ $ journalctl -exu 'uupd.service'
 
 1. `just build` will build this project and place the binary in `output/ublue-upd`
 1. `sudo ./output/ublue-upd` will run an update
+1. You can install this to the system by copying the rules
 
 # FAQ
 

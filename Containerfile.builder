@@ -15,4 +15,4 @@ RUN just container-rpm-build
 FROM scratch
 
 ENV UBLUE_ROOT=/app/output
-COPY --from=builder ${UBLUE_ROOT}/ublue-os/rpms /tmp/rpms
+COPY --from=builder ${UBLUE_ROOT}/ublue-os/rpms /rpms
