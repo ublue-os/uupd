@@ -1,9 +1,11 @@
 package lib
 
 import (
+	"log"
+	"time"
+
 	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/jedib0t/go-pretty/v6/text"
-	"time"
 )
 
 type Incrementer struct {
@@ -52,7 +54,11 @@ func NewIncrementTracker(tracker *progress.Tracker, max_increments int) *Increme
 	}
 }
 
-func ChangeTrackerMessageFancy(writer progress.Writer, tracker *IncrementTracker, message string) {
+func ChangeTrackerMessageFancy(writer progress.Writer, tracker *IncrementTracker, progress bool, message string) {
+	if !progress {
+		log.Printf("[%d|%d] %s\n", tracker.Tracker.Value(), tracker.Tracker.Total, message)
+		return
+	}
 	writer.SetMessageLength(len(message))
 	tracker.Tracker.UpdateMessage(message)
 }

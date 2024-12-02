@@ -7,6 +7,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.6.3
 	github.com/shirou/gopsutil/v4 v4.24.10
 	github.com/spf13/cobra v1.8.1
+	golang.org/x/term v0.26.0
 )
 
 require (
@@ -22,5 +23,4 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/sys v0.27.0 // indirect
-	golang.org/x/term v0.17.0 // indirect
 )
