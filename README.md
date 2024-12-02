@@ -37,7 +37,7 @@ $ sudo uupd
 # CLI Options
 
 ```
-  $ sudo uupd --help
+  $ uupd --help
 ```
 
 # Troubleshooting
