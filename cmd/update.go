@@ -20,7 +20,7 @@ type Failure struct {
 func Update(cmd *cobra.Command, args []string) {
 	lock, err := lib.AcquireLock()
 	if err != nil {
-		log.Fatalf("%v, is ublue-upd already running?", err)
+		log.Fatalf("%v, is uupd already running?", err)
 	}
 	systemDriver, err := drv.GetSystemUpdateDriver()
 	if err != nil {
@@ -159,7 +159,7 @@ func Update(cmd *cobra.Command, args []string) {
 			failedSystemsList = append(failedSystemsList, systemName)
 		}
 		failedSystemsStr := strings.Join(failedSystemsList, ", ")
-		lib.Notify("Updates failed", fmt.Sprintf("ublue-upd failed to update: %s, consider seeing logs with `journalctl -exu ublue-upd.service`", failedSystemsStr))
+		lib.Notify("Updates failed", fmt.Sprintf("uupd failed to update: %s, consider seeing logs with `journalctl -exu uupd.service`", failedSystemsStr))
 
 		log.Printf("Updates Completed with Failures:")
 		for name, fail := range failures {

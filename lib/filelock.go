@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const fileLockPath string = "/run/ublue-upd.lock"
+const fileLockPath string = "/run/uupd.lock"
 
 func IsFileLocked(file *os.File) bool {
 	lock := syscall.Flock_t{
