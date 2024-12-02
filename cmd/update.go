@@ -83,7 +83,18 @@ func Update(cmd *cobra.Command, args []string) {
 	totalSteps := brewUpdate + systemUpdate + 1 + len(users) + 1 + len(users) // system + Brew + Flatpak (users + root) + Distrobox (users + root)
 	pw := lib.NewProgressWriter()
 	pw.SetNumTrackersExpected(1)
-	go pw.Render()
+	pw.SetAutoStop(false)
+
+	noProgress, err := cmd.Flags().GetBool("no-progress")
+	if err != nil {
+		log.Fatalf("Failed to get no-progress flag: %v", err)
+	}
+
+	if !noProgress {
+		go pw.Render()
+	}
+	// move this to its actual boolean value (progress bar = false)
+	noProgress = !noProgress
 	// -1 because 0 index
 	tracker := lib.NewIncrementTracker(&progress.Tracker{Message: "Updating", Units: progress.UnitsDefault, Total: int64(totalSteps - 1)}, totalSteps-1)
 	pw.AppendTracker(tracker.Tracker)
@@ -91,8 +102,7 @@ func Update(cmd *cobra.Command, args []string) {
 	failures := make(map[string]Failure)
 
 	if updateAvailable {
-		tracker.IncrementSection()
-		lib.ChangeTrackerMessageFancy(pw, tracker, "Updating System")
+		lib.ChangeTrackerMessageFancy(pw, tracker, noProgress, "Updating System")
 		out, err := systemDriver.Update()
 		if err != nil {
 			failures[systemDriver.Name] = Failure{
@@ -106,7 +116,7 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	if brewUpdate == 1 {
-		lib.ChangeTrackerMessageFancy(pw, tracker, "Updating CLI apps (Brew)")
+		lib.ChangeTrackerMessageFancy(pw, tracker, noProgress, "Updating CLI apps (Brew)")
 		out, err := drv.BrewUpdate(brewUid)
 		if err != nil {
 			failures["Brew"] = Failure{
@@ -120,7 +130,7 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	// Run flatpak updates
-	lib.ChangeTrackerMessageFancy(pw, tracker, "Updating System Apps (Flatpak)")
+	lib.ChangeTrackerMessageFancy(pw, tracker, noProgress, "Updating System Apps (Flatpak)")
 	flatpakCmd := exec.Command("/usr/bin/flatpak", "update", "-y")
 	out, err := flatpakCmd.CombinedOutput()
 	if err != nil {
@@ -133,7 +143,7 @@ func Update(cmd *cobra.Command, args []string) {
 		tracker.IncrementSection()
 	}
 	for _, user := range users {
-		lib.ChangeTrackerMessageFancy(pw, tracker, fmt.Sprintf("Updating Apps for User: %s (Flatpak)", user.Name))
+		lib.ChangeTrackerMessageFancy(pw, tracker, noProgress, fmt.Sprintf("Updating Apps for User: %s (Flatpak)", user.Name))
 		out, err := lib.RunUID(user.UID, []string{"/usr/bin/flatpak", "update", "-y"}, nil)
 		if err != nil {
 			failures[fmt.Sprintf("Flatpak User: %s", user.Name)] = Failure{
@@ -147,7 +157,7 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	// Run distrobox updates
-	lib.ChangeTrackerMessageFancy(pw, tracker, "Updating System Distroboxes")
+	lib.ChangeTrackerMessageFancy(pw, tracker, noProgress, "Updating System Distroboxes")
 	// distrobox doesn't support sudo, run with systemd-run
 	out, err = lib.RunUID(0, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
 	if err != nil {
@@ -160,7 +170,7 @@ func Update(cmd *cobra.Command, args []string) {
 		tracker.IncrementSection()
 	}
 	for _, user := range users {
-		lib.ChangeTrackerMessageFancy(pw, tracker, fmt.Sprintf("Updating Distroboxes for User: %s", user.Name))
+		lib.ChangeTrackerMessageFancy(pw, tracker, noProgress, fmt.Sprintf("Updating Distroboxes for User: %s", user.Name))
 		out, err := lib.RunUID(user.UID, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
 		if err != nil {
 			failures[fmt.Sprintf("Distrobox User: %s", user.Name)] = Failure{
@@ -173,9 +183,8 @@ func Update(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	pw.Stop()
 	if len(failures) > 0 {
-		pw.SetAutoStop(false)
-		pw.Stop()
 		failedSystemsList := make([]string, 0, len(failures))
 		for systemName := range failures {
 			failedSystemsList = append(failedSystemsList, systemName)

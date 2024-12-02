@@ -3,9 +3,11 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"github.com/spf13/cobra"
 	"os"
 	"os/user"
+
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func assertRoot(cmd *cobra.Command, args []string) {
@@ -21,38 +23,38 @@ func assertRoot(cmd *cobra.Command, args []string) {
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "uupd",
-		Short: "uupd (Universal Update) is the successor to ublue-update, built for bootc",
+		Use:    "uupd",
+		Short:  "uupd (Universal Update) is the successor to ublue-update, built for bootc",
 		PreRun: assertRoot,
-		Run:   Update,
+		Run:    Update,
 	}
 
 	waitCmd = &cobra.Command{
-		Use:   "wait",
-		Short: "Waits for ostree sysroot to unlock",
+		Use:    "wait",
+		Short:  "Waits for ostree sysroot to unlock",
 		PreRun: assertRoot,
-		Run:   Wait,
+		Run:    Wait,
 	}
 
 	updateCheckCmd = &cobra.Command{
-		Use:   "update-check",
-		Short: "Check for updates to the booted image",
+		Use:    "update-check",
+		Short:  "Check for updates to the booted image",
 		PreRun: assertRoot,
-		Run:   UpdateCheck,
+		Run:    UpdateCheck,
 	}
 
 	hardwareCheckCmd = &cobra.Command{
-		Use:   "hw-check",
-		Short: "Run hardware checks",
+		Use:    "hw-check",
+		Short:  "Run hardware checks",
 		PreRun: assertRoot,
-		Run:   HwCheck,
+		Run:    HwCheck,
 	}
 
 	imageOutdatedCmd = &cobra.Command{
-		Use:   "is-img-outdated",
-		Short: "Print 'true' or 'false' based on if the current booted image is over 1 month old",
+		Use:    "is-img-outdated",
+		Short:  "Print 'true' or 'false' based on if the current booted image is over 1 month old",
 		PreRun: assertRoot,
-		Run:   ImageOutdated,
+		Run:    ImageOutdated,
 	}
 )
 
@@ -68,6 +70,8 @@ func init() {
 	rootCmd.AddCommand(updateCheckCmd)
 	rootCmd.AddCommand(hardwareCheckCmd)
 	rootCmd.AddCommand(imageOutdatedCmd)
-	rootCmd.Flags().BoolP("hw-check", "c", false, "run hardware check before running updates")
+	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+	rootCmd.Flags().BoolP("no-progress", "p", !isTerminal, "Do not show progress bars")
+	rootCmd.Flags().BoolP("hw-check", "c", false, "Run hardware check before running updates")
 	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run (used for testing)")
 }
