@@ -23,13 +23,21 @@ func Update(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("%v, is uupd already running?", err)
 	}
+	defer lib.ReleaseLock(lock)
 	systemDriver, err := drv.GetSystemUpdateDriver()
 	if err != nil {
 		log.Fatalf("Failed to get system update driver: %v", err)
 	}
-	outdated, err := systemDriver.ImageOutdated()
+	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
-		log.Fatalf("Unable to determine if image is outdated: %v", err)
+		log.Fatalf("Failed to get dry-run flag: %v", err)
+	}
+	var outdated = !dryRun
+	if !dryRun {
+		outdated, err = systemDriver.ImageOutdated()
+		if err != nil {
+			log.Fatalf("Unable to determine if image is outdated: %v", err)
+		}
 	}
 	if outdated {
 		lib.Notify("System Warning", "There hasn't been an update in over a month. Consider rebooting or running updates manually")
@@ -40,12 +48,8 @@ func Update(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("Failed to get hw-check flag: %v", err)
 	}
-	dryRun, err := cmd.Flags().GetBool("dry-run")
-	if err != nil {
-		log.Fatalf("Failed to get dry-run flag: %v", err)
-	}
 
-	if hwCheck {
+	if hwCheck && !dryRun {
 		err := checks.RunHwChecks()
 		if err != nil {
 			log.Fatalf("Hardware checks failed: %v", err)
@@ -59,24 +63,25 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	// Check if system update is available
-	log.Printf("Checking for system updates (%s)", systemDriver.Name)
-	updateAvailable, err := systemDriver.UpdateAvailable()
-	// ignore error on dry run
-	if err != nil && !dryRun {
-		log.Fatalf("Failed to check for image updates: %v", err)
+	var updateAvailable = !dryRun
+	if !dryRun {
+		log.Printf("Checking for system updates (%s)", systemDriver.Name)
+		updateAvailable, err = systemDriver.UpdateAvailable()
+		// ignore error on dry run
+		if err != nil {
+			log.Fatalf("Failed to check for image updates: %v", err)
+		}
+		log.Printf("System updates available: %t (%s)", updateAvailable, systemDriver.Name)
 	}
-	log.Printf("System updates available: %t (%s)", updateAvailable, systemDriver.Name)
-	// don't update system if there's a dry run
-	updateAvailable = updateAvailable && !dryRun
 	systemUpdate := 0
-	if updateAvailable {
+	if updateAvailable || dryRun {
 		systemUpdate = 1
 	}
 
 	// Check if brew is installed
 	brewUid, brewErr := drv.GetBrewUID()
 	brewUpdate := 0
-	if brewErr == nil {
+	if brewErr == nil || dryRun {
 		brewUpdate = 1
 	}
 
@@ -107,63 +112,65 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if brewUpdate == 1 {
 		lib.ChangeTrackerMessageFancy(pw, tracker, "Updating CLI apps (Brew)")
-		out, err := drv.BrewUpdate(brewUid)
-		if err != nil {
-			failures["Brew"] = Failure{
-				err,
-				string(out),
+		if !dryRun {
+			out, err := drv.BrewUpdate(brewUid)
+			if err != nil {
+				failures["Brew"] = Failure{
+					err,
+					string(out),
+				}
+				tracker.IncrementSectionError()
+			} else {
+				tracker.IncrementSection()
 			}
-			tracker.IncrementSectionError()
-		} else {
-			tracker.IncrementSection()
 		}
 	}
 
 	// Run flatpak updates
 	lib.ChangeTrackerMessageFancy(pw, tracker, "Updating System Apps (Flatpak)")
-	flatpakCmd := exec.Command("/usr/bin/flatpak", "update", "-y")
-	out, err := flatpakCmd.CombinedOutput()
-	if err != nil {
-		failures["Flatpak"] = Failure{
-			err,
-			string(out),
-		}
-		tracker.IncrementSectionError()
-	} else {
+	if dryRun {
 		tracker.IncrementSection()
-	}
-	for _, user := range users {
-		lib.ChangeTrackerMessageFancy(pw, tracker, fmt.Sprintf("Updating Apps for User: %s (Flatpak)", user.Name))
-		out, err := lib.RunUID(user.UID, []string{"/usr/bin/flatpak", "update", "-y"}, nil)
+	} else {
+		flatpakCmd := exec.Command("/usr/bin/flatpak", "update", "-y")
+		out, err := flatpakCmd.CombinedOutput()
 		if err != nil {
-			failures[fmt.Sprintf("Flatpak User: %s", user.Name)] = Failure{
+			failures["Flatpak"] = Failure{
 				err,
 				string(out),
 			}
 			tracker.IncrementSectionError()
 		} else {
 			tracker.IncrementSection()
+		}
+	}
+	for _, user := range users {
+		lib.ChangeTrackerMessageFancy(pw, tracker, fmt.Sprintf("Updating Apps for User: %s (Flatpak)", user.Name))
+		if dryRun {
+			tracker.IncrementSection()
+		} else {
+			out, err := lib.RunUID(user.UID, []string{"/usr/bin/flatpak", "update", "-y"}, nil)
+			if err != nil {
+				failures[fmt.Sprintf("Flatpak User: %s", user.Name)] = Failure{
+					err,
+					string(out),
+				}
+				tracker.IncrementSectionError()
+			} else {
+				tracker.IncrementSection()
+			}
+
 		}
 	}
 
 	// Run distrobox updates
 	lib.ChangeTrackerMessageFancy(pw, tracker, "Updating System Distroboxes")
-	// distrobox doesn't support sudo, run with systemd-run
-	out, err = lib.RunUID(0, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
-	if err != nil {
-		failures["Distrobox"] = Failure{
-			err,
-			string(out),
-		}
-		tracker.IncrementSectionError()
-	} else {
+	if dryRun {
 		tracker.IncrementSection()
-	}
-	for _, user := range users {
-		lib.ChangeTrackerMessageFancy(pw, tracker, fmt.Sprintf("Updating Distroboxes for User: %s", user.Name))
-		out, err := lib.RunUID(user.UID, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
+	} else {
+		// distrobox doesn't support sudo, run with systemd-run
+		out, err := lib.RunUID(0, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
 		if err != nil {
-			failures[fmt.Sprintf("Distrobox User: %s", user.Name)] = Failure{
+			failures["Distrobox"] = Failure{
 				err,
 				string(out),
 			}
@@ -173,7 +180,25 @@ func Update(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if len(failures) > 0 {
+	for _, user := range users {
+		lib.ChangeTrackerMessageFancy(pw, tracker, fmt.Sprintf("Updating Distroboxes for User: %s", user.Name))
+		if dryRun {
+			tracker.IncrementSection()
+		} else {
+			out, err := lib.RunUID(user.UID, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
+			if err != nil {
+				failures[fmt.Sprintf("Distrobox User: %s", user.Name)] = Failure{
+					err,
+					string(out),
+				}
+				tracker.IncrementSectionError()
+			} else {
+				tracker.IncrementSection()
+			}
+		}
+	}
+
+	if len(failures) > 0 && !dryRun {
 		pw.SetAutoStop(false)
 		pw.Stop()
 		failedSystemsList := make([]string, 0, len(failures))
@@ -197,5 +222,4 @@ func Update(cmd *cobra.Command, args []string) {
 		return
 	}
 	log.Printf("Updates Completed")
-	lib.ReleaseLock(lock)
 }
