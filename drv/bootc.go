@@ -132,7 +132,13 @@ type SystemUpdateDriver struct {
 func GetSystemUpdateDriver() (SystemUpdateDriver, error) {
 	useBootc, err := BootcCompat()
 	if err != nil {
-		return SystemUpdateDriver{}, err
+		// bootc isn't on the current system if there's an error
+		return SystemUpdateDriver{
+			IsRpmOstreeImageOutdated,
+			RpmOstreeUpdate,
+			CheckForRpmOstreeImageUpdate,
+			"rpm-ostree",
+		}, nil
 	}
 	if useBootc {
 		return SystemUpdateDriver{
