@@ -13,7 +13,7 @@ func main() {
 		log.Fatalf("Error fetching current user: %v", err)
 	}
 	if currentUser.Uid != "0" {
-		log.Fatalf("ublue-upd needs to be invoked as root.")
+		log.Fatalf("uupd needs to be invoked as root.")
 	}
 	cmd.Execute()
 }

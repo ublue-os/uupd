@@ -77,7 +77,7 @@ func Notify(summary string, body string) error {
 	}
 	for _, user := range users {
 		// we don't care if these exit
-		RunUID(user.UID, []string{"/usr/bin/notify-send", "--app-name", "ublue-upd", summary, body}, nil)
+		RunUID(user.UID, []string{"/usr/bin/notify-send", "--app-name", "uupd", summary, body}, nil)
 	}
 	return nil
 }
