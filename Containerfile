@@ -19,7 +19,7 @@ ENV UBLUE_ROOT=/app/output
 
 
 COPY --from=builder ${UBLUE_ROOT}/ublue-os/rpms /tmp/rpms
-RUN dnf install /tmp/rpms/uupd.rpm
+RUN dnf install -y /tmp/rpms/uupd.rpm
 
 # FROM: https://github.com/containers/image_build/blob/main/podman/Containerfile, sets up podman to work in the container
 RUN useradd -G wheel podman && \
