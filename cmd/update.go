@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
 	"github.com/ublue-os/uupd/drv"
@@ -80,36 +81,46 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	totalSteps := brewUpdate + systemUpdate + 1 + len(users) + 1 + len(users) // system + Brew + Flatpak (users + root) + Distrobox (users + root)
-	currentStep := 0
+	pw := lib.NewProgressWriter()
+	pw.SetNumTrackersExpected(1)
+	go pw.Render()
+	// -1 because 0 index
+	tracker := lib.NewIncrementTracker(&progress.Tracker{Message: "Updating", Units: progress.UnitsDefault, Total: int64(totalSteps - 1)}, totalSteps-1)
+	pw.AppendTracker(tracker.Tracker)
+
 	failures := make(map[string]Failure)
 
 	if updateAvailable {
-		currentStep++
-		log.Printf("[%d/%d] Updating System (%s)", currentStep, totalSteps, systemDriver.Name)
+		tracker.IncrementSection()
+		lib.ChangeTrackerMessageFancy(pw, tracker, "Updating System")
 		out, err := systemDriver.Update()
 		if err != nil {
 			failures[systemDriver.Name] = Failure{
 				err,
 				string(out),
 			}
+			tracker.IncrementSectionError()
+		} else {
+			tracker.IncrementSection()
 		}
 	}
 
 	if brewUpdate == 1 {
-		currentStep++
-		log.Printf("[%d/%d] Updating CLI Apps (Brew)", currentStep, totalSteps)
+		lib.ChangeTrackerMessageFancy(pw, tracker, "Updating CLI apps (Brew)")
 		out, err := drv.BrewUpdate(brewUid)
 		if err != nil {
 			failures["Brew"] = Failure{
 				err,
 				string(out),
 			}
+			tracker.IncrementSectionError()
+		} else {
+			tracker.IncrementSection()
 		}
 	}
 
 	// Run flatpak updates
-	currentStep++
-	log.Printf("[%d/%d] Updating System Apps (Flatpak)", currentStep, totalSteps)
+	lib.ChangeTrackerMessageFancy(pw, tracker, "Updating System Apps (Flatpak)")
 	flatpakCmd := exec.Command("/usr/bin/flatpak", "update", "-y")
 	out, err := flatpakCmd.CombinedOutput()
 	if err != nil {
@@ -117,22 +128,26 @@ func Update(cmd *cobra.Command, args []string) {
 			err,
 			string(out),
 		}
+		tracker.IncrementSectionError()
+	} else {
+		tracker.IncrementSection()
 	}
 	for _, user := range users {
-		currentStep++
-		log.Printf("[%d/%d] Updating Apps for User: %s (Flatpak)", currentStep, totalSteps, user.Name)
+		lib.ChangeTrackerMessageFancy(pw, tracker, fmt.Sprintf("Updating Apps for User: %s (Flatpak)", user.Name))
 		out, err := lib.RunUID(user.UID, []string{"/usr/bin/flatpak", "update", "-y"}, nil)
 		if err != nil {
 			failures[fmt.Sprintf("Flatpak User: %s", user.Name)] = Failure{
 				err,
 				string(out),
 			}
+			tracker.IncrementSectionError()
+		} else {
+			tracker.IncrementSection()
 		}
 	}
 
 	// Run distrobox updates
-	currentStep++
-	log.Printf("[%d/%d] Updating System Distroboxes", currentStep, totalSteps)
+	lib.ChangeTrackerMessageFancy(pw, tracker, "Updating System Distroboxes")
 	// distrobox doesn't support sudo, run with systemd-run
 	out, err = lib.RunUID(0, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
 	if err != nil {
@@ -140,27 +155,33 @@ func Update(cmd *cobra.Command, args []string) {
 			err,
 			string(out),
 		}
+		tracker.IncrementSectionError()
+	} else {
+		tracker.IncrementSection()
 	}
 	for _, user := range users {
-		currentStep++
-		log.Printf("[%d/%d] Updating Distroboxes for User: %s", currentStep, totalSteps, user.Name)
+		lib.ChangeTrackerMessageFancy(pw, tracker, fmt.Sprintf("Updating Distroboxes for User: %s", user.Name))
 		out, err := lib.RunUID(user.UID, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
 		if err != nil {
 			failures[fmt.Sprintf("Distrobox User: %s", user.Name)] = Failure{
 				err,
 				string(out),
 			}
+			tracker.IncrementSectionError()
+		} else {
+			tracker.IncrementSection()
 		}
 	}
 
 	if len(failures) > 0 {
+		pw.SetAutoStop(false)
+		pw.Stop()
 		failedSystemsList := make([]string, 0, len(failures))
 		for systemName := range failures {
 			failedSystemsList = append(failedSystemsList, systemName)
 		}
 		failedSystemsStr := strings.Join(failedSystemsList, ", ")
 		lib.Notify("Updates failed", fmt.Sprintf("uupd failed to update: %s, consider seeing logs with `journalctl -exu uupd.service`", failedSystemsStr))
-
 		log.Printf("Updates Completed with Failures:")
 		for name, fail := range failures {
 			indentedOutput := "\t |  "
