@@ -53,6 +53,11 @@ $ journalctl -exu 'uupd.service'
 1. `sudo ./output/uupd` will run an update
 1. You can install this to the system by copying the rules
 
+##  Devcontainer Usage
+  1. When prompted, reopen the repository in Container
+  2. Follow above building instructions
+  3. Download `uupd` from container to host and run on your host
+
 # FAQ
 
 Q: How do I add my own custom update script?
