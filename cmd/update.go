@@ -71,6 +71,9 @@ func Update(cmd *cobra.Command, args []string) {
 			slog.Error("Failed checking for updates")
 		}
 		systemUpdater.Config.Enabled = enableUpd
+		if !enableUpd {
+			slog.Debug("No system update found, disabiling module")
+		}
 	}
 
 	brewUpdater, err := drv.BrewUpdater{}.New(*initConfiguration)
