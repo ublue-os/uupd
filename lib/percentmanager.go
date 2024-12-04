@@ -1,7 +1,8 @@
 package lib
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
@@ -54,13 +55,24 @@ func NewIncrementTracker(tracker *progress.Tracker, max_increments int) *Increme
 	}
 }
 
-func ChangeTrackerMessageFancy(writer progress.Writer, tracker *IncrementTracker, progress bool, message string) {
+type TrackerMessage struct {
+	Title       string
+	Description string
+}
+
+func ChangeTrackerMessageFancy(writer progress.Writer, tracker *IncrementTracker, progress bool, message TrackerMessage) {
 	if !progress {
-		log.Printf("[%d|%d] %s\n", tracker.Tracker.Value(), tracker.Tracker.Total, message)
+		slog.Info("Updating",
+			slog.String("title", message.Title),
+			slog.String("description", message.Description),
+			slog.Int64("progress", tracker.Tracker.Value()),
+			slog.Int64("total", tracker.Tracker.Total),
+		)
 		return
 	}
-	writer.SetMessageLength(len(message))
-	tracker.Tracker.UpdateMessage(message)
+	finalMessage := fmt.Sprintf("Updating %s (%s)", message.Description, message.Title)
+	writer.SetMessageLength(len(finalMessage))
+	tracker.Tracker.UpdateMessage(finalMessage)
 }
 
 func (it *IncrementTracker) IncrementSection(err error) {

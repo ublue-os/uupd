@@ -9,12 +9,12 @@ type CommandOutput struct {
 	Stdout  string
 	Failure bool
 	Stderr  error
-	Context *string
+	Context string
 }
 
 func (output CommandOutput) New(out []byte, err error) *CommandOutput {
 	return &CommandOutput{
-		Context: nil,
+		Context: "",
 		Failure: err != nil,
 		Stderr:  nil,
 		Stdout:  string(out),
@@ -23,7 +23,7 @@ func (output CommandOutput) New(out []byte, err error) *CommandOutput {
 
 func (out *CommandOutput) SetFailureContext(context string) {
 	out.Failure = true
-	out.Context = &context
+	out.Context = context
 }
 
 type DriverConfiguration struct {

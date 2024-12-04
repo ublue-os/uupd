@@ -3,10 +3,14 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/user"
+	"path"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
+	appLogging "github.com/ublue-os/uupd/pkg/logging"
 	"golang.org/x/term"
 )
 
@@ -23,10 +27,11 @@ func assertRoot(cmd *cobra.Command, args []string) {
 
 var (
 	rootCmd = &cobra.Command{
-		Use:    "uupd",
-		Short:  "uupd (Universal Update) is the successor to ublue-update, built for bootc",
-		PreRun: assertRoot,
-		Run:    Update,
+		Use:               "uupd",
+		Short:             "uupd (Universal Update) is the successor to ublue-update, built for bootc",
+		PersistentPreRunE: initLogging,
+		PreRun:            assertRoot,
+		Run:               Update,
 	}
 
 	waitCmd = &cobra.Command{
@@ -56,6 +61,10 @@ var (
 		PreRun: assertRoot,
 		Run:    ImageOutdated,
 	}
+
+	fLogFile   string
+	fLogLevel  string
+	fNoLogging bool
 )
 
 func Execute() {
@@ -65,14 +74,53 @@ func Execute() {
 	}
 }
 
+func initLogging(cmd *cobra.Command, args []string) error {
+	var logWriter *os.File = os.Stdout
+	if fLogFile != "-" {
+		abs, err := filepath.Abs(path.Clean(fLogFile))
+		if err != nil {
+			return err
+		}
+		logWriter, err = os.OpenFile(abs, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
+		if err != nil {
+			return err
+		}
+	}
+
+	logLevel, err := appLogging.StrToLogLevel(fLogLevel)
+	if err != nil {
+		return err
+	}
+
+	main_app_logger := slog.New(appLogging.SetupAppLogger(logWriter, logLevel, fLogFile != "-"))
+
+	if fNoLogging {
+		slog.SetDefault(appLogging.NewMuteLogger())
+	} else {
+		slog.SetDefault(main_app_logger)
+	}
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(waitCmd)
 	rootCmd.AddCommand(updateCheckCmd)
 	rootCmd.AddCommand(hardwareCheckCmd)
 	rootCmd.AddCommand(imageOutdatedCmd)
+	interactiveProgress := true
+	if fLogFile != "-" {
+		interactiveProgress = false
+	}
 	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-	rootCmd.Flags().BoolP("no-progress", "p", !isTerminal, "Do not show progress bars")
+	if !isTerminal {
+		interactiveProgress = false
+	}
+	rootCmd.Flags().BoolP("no-progress", "p", interactiveProgress, "Do not show progress bars")
 	rootCmd.Flags().BoolP("hw-check", "c", false, "Run hardware check before running updates")
 	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run")
 	rootCmd.Flags().BoolP("verbose", "v", false, "Display command outputs after run")
+
+	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
+	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")
+	rootCmd.PersistentFlags().BoolVar(&fNoLogging, "quiet", false, "Make logs quiet")
 }
