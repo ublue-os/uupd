@@ -119,6 +119,7 @@ func init() {
 	rootCmd.Flags().BoolP("hw-check", "c", false, "Run hardware check before running updates")
 	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run")
 	rootCmd.Flags().BoolP("verbose", "v", false, "Display command outputs after run")
+	rootCmd.Flags().Bool("ci", false, "Makes some modifications to behavior if is running in CI")
 
 	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
 	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")

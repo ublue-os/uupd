@@ -14,15 +14,15 @@ func (up SystemUpdater) Steps() int {
 	return 0
 }
 
-func (up SystemUpdater) New(dryrun bool) (SystemUpdater, error) {
+func (up SystemUpdater) New(initconfig UpdaterInitConfiguration) (SystemUpdater, error) {
 	up.Config = DriverConfiguration{
 		Title:       "System",
 		Description: "System Updates",
-		Enabled:     true,
-		DryRun:      dryrun,
+		Enabled:     !initconfig.Ci,
+		DryRun:      initconfig.DryRun,
 	}
 
-	if dryrun {
+	if up.Config.DryRun {
 		up.Outdated = false
 		return up, nil
 	}

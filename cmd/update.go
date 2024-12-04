@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/spf13/cobra"
@@ -50,28 +51,28 @@ func Update(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	systemUpdater, err := drv.SystemUpdater{}.New(dryRun)
+	initConfiguration := drv.UpdaterInitConfiguration{}.New()
+	_, empty := os.LookupEnv("CI")
+	initConfiguration.Ci = !empty
+	initConfiguration.DryRun = dryRun
+	initConfiguration.Verbose = verboseRun
+
+	systemUpdater, err := drv.SystemUpdater{}.New(*initConfiguration)
 	if err != nil {
 		systemUpdater.Config.Enabled = false
 	} else {
 		systemUpdater.Check()
 	}
 
-	brewUpdater, err := drv.BrewUpdater{}.New(dryRun)
-	if err != nil {
-		brewUpdater.Config.Enabled = false
-	}
+	brewUpdater, err := drv.BrewUpdater{}.New(*initConfiguration)
+	brewUpdater.Config.Enabled = err == nil
 
-	flatpakUpdater, err := drv.FlatpakUpdater{}.New(dryRun)
-	if err != nil {
-		flatpakUpdater.Config.Enabled = false
-	}
+	flatpakUpdater, err := drv.FlatpakUpdater{}.New(*initConfiguration)
+	flatpakUpdater.Config.Enabled = err == nil
 	flatpakUpdater.SetUsers(users)
 
-	distroboxUpdater, err := drv.DistroboxUpdater{}.New(dryRun)
-	if err != nil {
-		distroboxUpdater.Config.Enabled = false
-	}
+	distroboxUpdater, err := drv.DistroboxUpdater{}.New(*initConfiguration)
+	distroboxUpdater.Config.Enabled = err == nil
 	distroboxUpdater.SetUsers(users)
 
 	totalSteps := brewUpdater.Steps() + systemUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()

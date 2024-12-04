@@ -25,7 +25,7 @@ func (up DistroboxUpdater) Steps() int {
 	return 0
 }
 
-func (up DistroboxUpdater) New(dryrun bool) (DistroboxUpdater, error) {
+func (up DistroboxUpdater) New(initconfig UpdaterInitConfiguration) (DistroboxUpdater, error) {
 	userdesc := "Distroboxes for User:"
 	up.Config = DriverConfiguration{
 		Title:           "Distrobox",
@@ -33,7 +33,7 @@ func (up DistroboxUpdater) New(dryrun bool) (DistroboxUpdater, error) {
 		UserDescription: &userdesc,
 		Enabled:         true,
 		MultiUser:       true,
-		DryRun:          dryrun,
+		DryRun:          initconfig.DryRun,
 	}
 	up.usersEnabled = false
 	up.Tracker = nil

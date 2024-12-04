@@ -25,7 +25,7 @@ func (up FlatpakUpdater) Steps() int {
 	return 0
 }
 
-func (up FlatpakUpdater) New(dryrun bool) (FlatpakUpdater, error) {
+func (up FlatpakUpdater) New(initconfig UpdaterInitConfiguration) (FlatpakUpdater, error) {
 	userdesc := "Apps for User:"
 	up.Config = DriverConfiguration{
 		Title:           "Flatpak",
@@ -33,7 +33,7 @@ func (up FlatpakUpdater) New(dryrun bool) (FlatpakUpdater, error) {
 		UserDescription: &userdesc,
 		Enabled:         true,
 		MultiUser:       true,
-		DryRun:          dryrun,
+		DryRun:          initconfig.DryRun,
 	}
 	up.usersEnabled = false
 	up.Tracker = nil
