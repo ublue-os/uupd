@@ -67,19 +67,19 @@ type BrewUpdater struct {
 
 func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) {
 	brewPrefix, empty := os.LookupEnv("HOMEBREW_PREFIX")
-	if empty {
+	if empty || brewPrefix == "" {
 		brewPrefix = "/home/linuxbrew/.linuxbrew"
 	}
 	brewRepo, empty := os.LookupEnv("HOMEBREW_REPOSITORY")
-	if empty {
+	if empty || brewRepo == "" {
 		brewRepo = fmt.Sprintf("%s/Homebrew", brewPrefix)
 	}
 	brewCellar, empty := os.LookupEnv("HOMEBREW_CELLAR")
-	if empty {
+	if empty || brewCellar == "" {
 		brewCellar = fmt.Sprintf("%s/Cellar", brewPrefix)
 	}
 	brewPath, empty := os.LookupEnv("HOMEBREW_PATH")
-	if empty {
+	if empty || brewPath == "" {
 		brewPath = fmt.Sprintf("%s/bin/brew", brewPrefix)
 	}
 

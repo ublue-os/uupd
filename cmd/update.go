@@ -61,7 +61,11 @@ func Update(cmd *cobra.Command, args []string) {
 	if err != nil {
 		systemUpdater.Config.Enabled = false
 	} else {
-		systemUpdater.Check()
+		enableUpd, err := systemUpdater.Check()
+		if err != nil {
+			slog.Error("Failed checking for updates")
+		}
+		systemUpdater.Config.Enabled = enableUpd
 	}
 
 	brewUpdater, err := drv.BrewUpdater{}.New(*initConfiguration)

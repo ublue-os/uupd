@@ -43,7 +43,7 @@ func (up SystemUpdater) New(initconfig UpdaterInitConfiguration) (SystemUpdater,
 }
 
 func (up *SystemUpdater) Check() (bool, error) {
-	if up.Config.DryRun || !up.Config.Enabled {
+	if up.Config.DryRun {
 		return true, nil
 	}
 	updateAvailable, err := up.SystemDriver.UpdateAvailable()

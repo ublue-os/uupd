@@ -79,7 +79,7 @@ func (up *DistroboxUpdater) Update() (*[]CommandOutput, error) {
 	for _, user := range up.users {
 		up.Tracker.Tracker.IncrementSection(err)
 		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
-		out, err := lib.RunUID(user.UID, []string{"/usr/bin/flatpak", "update", "-y"}, nil)
+		out, err := lib.RunUID(user.UID, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
 		tmpout = CommandOutput{}.New(out, err)
 		if err != nil {
 			tmpout.SetFailureContext(fmt.Sprintf("Distroboxes for User: %s", user.Name))
