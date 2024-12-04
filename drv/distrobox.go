@@ -2,7 +2,6 @@ package drv
 
 import (
 	"fmt"
-	"os/exec"
 
 	"github.com/ublue-os/uupd/lib"
 )
@@ -67,8 +66,7 @@ func (up *DistroboxUpdater) Update() (*[]CommandOutput, error) {
 
 	// TODO: add env support for Flatpak and Distrobox updaters
 	lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
-	flatpakCmd := exec.Command("/usr/bin/distrobox", "upgrade", "-a")
-	out, err := flatpakCmd.CombinedOutput()
+	out, err := lib.RunUID(0, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
 	tmpout := CommandOutput{}.New(out, err)
 	if err != nil {
 		tmpout.SetFailureContext("System Distroboxes")
