@@ -73,5 +73,6 @@ func init() {
 	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 	rootCmd.Flags().BoolP("no-progress", "p", !isTerminal, "Do not show progress bars")
 	rootCmd.Flags().BoolP("hw-check", "c", false, "Run hardware check before running updates")
-	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run (used for testing)")
+	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run")
+	rootCmd.Flags().BoolP("verbose", "v", false, "Display command outputs after run")
 }

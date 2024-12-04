@@ -63,25 +63,18 @@ func ChangeTrackerMessageFancy(writer progress.Writer, tracker *IncrementTracker
 	tracker.Tracker.UpdateMessage(message)
 }
 
-func (it *IncrementTracker) IncrementSection() {
+func (it *IncrementTracker) IncrementSection(err error) {
 	var increment_step float64
 	if it.incrementer.doneIncrements == 0 {
 		increment_step = 1
 	} else {
 		increment_step = float64(it.Tracker.Total / int64(it.incrementer.MaxIncrements))
 	}
-	it.Tracker.Increment(int64(increment_step))
-	it.incrementer.doneIncrements++
-}
-
-func (it *IncrementTracker) IncrementSectionError() {
-	var increment_step float64
-	if it.incrementer.doneIncrements == 0 {
-		increment_step = 1
+	if err == nil {
+		it.Tracker.Increment(int64(increment_step))
 	} else {
-		increment_step = float64(it.Tracker.Total / int64(it.incrementer.MaxIncrements))
+		it.Tracker.IncrementWithError(int64(increment_step))
 	}
-	it.Tracker.IncrementWithError(int64(increment_step))
 	it.incrementer.doneIncrements++
 }
 
