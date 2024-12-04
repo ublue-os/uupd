@@ -2,47 +2,52 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
 	"github.com/ublue-os/uupd/drv"
 	"github.com/ublue-os/uupd/lib"
-	"gopkg.in/yaml.v3"
 )
 
 func Update(cmd *cobra.Command, args []string) {
 	lock, err := lib.AcquireLock()
 	if err != nil {
-		log.Fatalf("%v, is uupd already running?", err)
+		slog.Error(fmt.Sprintf("%v, is uupd already running?", err))
+		return
 	}
 	defer lib.ReleaseLock(lock)
 
 	hwCheck, err := cmd.Flags().GetBool("hw-check")
 	if err != nil {
-		log.Fatalf("Failed to get hw-check flag: %v", err)
+		slog.Error("Failed to get hw-check flag", "error", err)
+		return
 	}
 	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
-		log.Fatalf("Failed to get dry-run flag: %v", err)
+		slog.Error("Failed to get dry-run flag", "error", err)
+		return
 	}
 	verboseRun, err := cmd.Flags().GetBool("verbose")
 	if err != nil {
-		log.Fatalf("Failed to get verbose flag: %v", err)
+		slog.Error("Failed to get verbose flag", "error", err)
+		return
 	}
 
 	if hwCheck {
 		err := checks.RunHwChecks()
 		if err != nil {
-			log.Fatalf("Hardware checks failed: %v", err)
+			slog.Error("Hardware checks failed", "error", err)
+			return
 		}
-		log.Println("Hardware checks passed")
+		slog.Info("Hardware checks passed")
 	}
 
 	users, err := lib.ListUsers()
 	if err != nil {
-		log.Fatalf("Failed to list users")
+		slog.Error("Failed to list users", "users", users)
+		return
 	}
 
 	systemUpdater, err := drv.SystemUpdater{}.New(dryRun)
@@ -76,7 +81,8 @@ func Update(cmd *cobra.Command, args []string) {
 
 	progressEnabled, err := cmd.Flags().GetBool("no-progress")
 	if err != nil {
-		log.Fatalf("Failed to get no-progress flag: %v", err)
+		slog.Error("Failed to get no-progress flag", "error", err)
+		return
 	}
 	// Move this to its actual boolean value (~no-progress)
 	progressEnabled = !progressEnabled
@@ -100,19 +106,20 @@ func Update(cmd *cobra.Command, args []string) {
 	var outputs = []drv.CommandOutput{}
 
 	if systemUpdater.Outdated {
-		lib.Notify("System Warning", "There hasn't been an update in over a month. Consider rebooting or running updates manually")
-		log.Printf("There hasn't been an update in over a month. Consider rebooting or running updates manually")
+		const OUTDATED_WARNING = "There hasn't been an update in over a month. Consider rebooting or running updates manually"
+		lib.Notify("System Warning", OUTDATED_WARNING)
+		slog.Warn(OUTDATED_WARNING)
 	}
 
 	if systemUpdater.Config.Enabled {
-		lib.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, fmt.Sprintf("Updating %s (%s)", systemUpdater.Config.Description, systemUpdater.Config.Title))
+		lib.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, lib.TrackerMessage{Title: systemUpdater.Config.Title, Description: systemUpdater.Config.Description})
 		out, err := systemUpdater.Update()
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
 
 	if brewUpdater.Config.Enabled {
-		lib.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, fmt.Sprintf("Updating %s (%s)", brewUpdater.Config.Description, brewUpdater.Config.Title))
+		lib.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, lib.TrackerMessage{Title: brewUpdater.Config.Title, Description: brewUpdater.Config.Description})
 		out, err := brewUpdater.Update()
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
@@ -131,16 +138,13 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	pw.Stop()
-
 	if verboseRun {
-		log.Println("Verbose run requested")
+		slog.Info("Verbose run requested")
 
-		b, err := yaml.Marshal(outputs)
-		if err != nil {
-			log.Fatalf("Failure!")
-			return
+		for _, output := range outputs {
+			slog.Info("CommandOutput", slog.String("context", output.Context), slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr))
 		}
-		log.Printf("%s", string(b))
+
 		return
 	}
 
@@ -152,17 +156,14 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	if len(failures) > 0 {
-		log.Println("Exited with failed updates.\nFailures found:")
+		slog.Warn("Exited with failed updates.")
 
-		b, err := yaml.Marshal(failures)
-		if err != nil {
-			log.Fatalf("Failure!")
-			return
+		for _, output := range failures {
+			slog.Info("CommandOutput", slog.String("context", output.Context), slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr))
 		}
-		log.Printf("%s", string(b))
 
 		return
 	}
 
-	log.Printf("Updates Completed")
+	slog.Info("Updates Completed Successfully")
 }

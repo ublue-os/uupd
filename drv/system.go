@@ -8,19 +8,16 @@ type SystemUpdater struct {
 }
 
 func (up SystemUpdater) Steps() int {
-	var steps = 0
-
-	if up.UpdateAvailable && up.Config.Enabled {
-		steps += 1
+	if up.Config.Enabled {
+		return 1
 	}
-
-	return steps
+	return 0
 }
 
 func (up SystemUpdater) New(dryrun bool) (SystemUpdater, error) {
 	up.Config = DriverConfiguration{
 		Title:       "System",
-		Description: "System Update",
+		Description: "System Updates",
 		Enabled:     true,
 		DryRun:      dryrun,
 	}

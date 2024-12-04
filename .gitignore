@@ -28,3 +28,4 @@ ublue-upd
 output/*
 *.key
 *.private
+*.log

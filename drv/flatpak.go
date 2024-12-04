@@ -15,7 +15,14 @@ type FlatpakUpdater struct {
 }
 
 func (up FlatpakUpdater) Steps() int {
-	return (1 + len(up.users))
+	if up.Config.Enabled {
+		var steps = 1
+		if up.usersEnabled {
+			steps += len(up.users)
+		}
+		return steps
+	}
+	return 0
 }
 
 func (up FlatpakUpdater) New(dryrun bool) (FlatpakUpdater, error) {
@@ -47,18 +54,18 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 
 	if up.Config.DryRun {
-		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, fmt.Sprintf("Updating %s (%s)", up.Config.Description, up.Config.Title))
+		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
 		up.Tracker.Tracker.IncrementSection(nil)
 
 		var err error = nil
 		for _, user := range up.users {
 			up.Tracker.Tracker.IncrementSection(err)
-			lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, fmt.Sprintf("Updating %s %s (%s)", *up.Config.UserDescription, user.Name, up.Config.Title))
+			lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
 		}
 		return &finalOutput, nil
 	}
 
-	lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, fmt.Sprintf("Updating %s (%s)", up.Config.Description, up.Config.Title))
+	lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
 	flatpakCmd := exec.Command("/usr/bin/flatpak", "update", "-y")
 	out, err := flatpakCmd.CombinedOutput()
 	tmpout := CommandOutput{}.New(out, err)
@@ -70,7 +77,7 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	err = nil
 	for _, user := range up.users {
 		up.Tracker.Tracker.IncrementSection(err)
-		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, fmt.Sprintf("Updating %s %s (%s)", *up.Config.UserDescription, user.Name, up.Config.Title))
+		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
 		out, err := lib.RunUID(user.UID, []string{"/usr/bin/flatpak", "update", "-y"}, nil)
 		tmpout = CommandOutput{}.New(out, err)
 		if err != nil {
