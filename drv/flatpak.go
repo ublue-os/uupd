@@ -15,7 +15,14 @@ type FlatpakUpdater struct {
 }
 
 func (up FlatpakUpdater) Steps() int {
-	return (1 + len(up.users))
+	if up.Config.Enabled {
+		var steps = 1
+		if up.usersEnabled {
+			steps += len(up.users)
+		}
+		return steps
+	}
+	return 0
 }
 
 func (up FlatpakUpdater) New(dryrun bool) (FlatpakUpdater, error) {
