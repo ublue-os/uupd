@@ -29,3 +29,5 @@ output/*
 *.key
 *.private
 *.log
+
+dist/

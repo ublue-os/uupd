@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/spf13/cobra"
@@ -17,7 +18,12 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error(fmt.Sprintf("%v, is uupd already running?", err))
 		return
 	}
-	defer lib.ReleaseLock(lock)
+	defer func() {
+		err := lib.ReleaseLock(lock)
+		if err != nil {
+			slog.Error("Failed releasing lock")
+		}
+	}()
 
 	hwCheck, err := cmd.Flags().GetBool("hw-check")
 	if err != nil {
@@ -50,28 +56,35 @@ func Update(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	systemUpdater, err := drv.SystemUpdater{}.New(dryRun)
+	initConfiguration := drv.UpdaterInitConfiguration{}.New()
+	_, empty := os.LookupEnv("CI")
+	initConfiguration.Ci = !empty
+	initConfiguration.DryRun = dryRun
+	initConfiguration.Verbose = verboseRun
+
+	systemUpdater, err := drv.SystemUpdater{}.New(*initConfiguration)
 	if err != nil {
 		systemUpdater.Config.Enabled = false
 	} else {
-		systemUpdater.Check()
+		enableUpd, err := systemUpdater.Check()
+		if err != nil {
+			slog.Error("Failed checking for updates")
+		}
+		systemUpdater.Config.Enabled = enableUpd
+		if !enableUpd {
+			slog.Debug("No system update found, disabiling module")
+		}
 	}
 
-	brewUpdater, err := drv.BrewUpdater{}.New(dryRun)
-	if err != nil {
-		brewUpdater.Config.Enabled = false
-	}
+	brewUpdater, err := drv.BrewUpdater{}.New(*initConfiguration)
+	brewUpdater.Config.Enabled = err == nil
 
-	flatpakUpdater, err := drv.FlatpakUpdater{}.New(dryRun)
-	if err != nil {
-		flatpakUpdater.Config.Enabled = false
-	}
+	flatpakUpdater, err := drv.FlatpakUpdater{}.New(*initConfiguration)
+	flatpakUpdater.Config.Enabled = err == nil
 	flatpakUpdater.SetUsers(users)
 
-	distroboxUpdater, err := drv.DistroboxUpdater{}.New(dryRun)
-	if err != nil {
-		distroboxUpdater.Config.Enabled = false
-	}
+	distroboxUpdater, err := drv.DistroboxUpdater{}.New(*initConfiguration)
+	distroboxUpdater.Config.Enabled = err == nil
 	distroboxUpdater.SetUsers(users)
 
 	totalSteps := brewUpdater.Steps() + systemUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
@@ -107,7 +120,10 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if systemUpdater.Outdated {
 		const OUTDATED_WARNING = "There hasn't been an update in over a month. Consider rebooting or running updates manually"
-		lib.Notify("System Warning", OUTDATED_WARNING)
+		err := lib.Notify("System Warning", OUTDATED_WARNING)
+		if err != nil {
+			slog.Error("Failed showing warning notification")
+		}
 		slog.Warn(OUTDATED_WARNING)
 	}
 

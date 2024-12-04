@@ -65,14 +65,24 @@ type BrewUpdater struct {
 	Environment map[string]string
 }
 
-func (up BrewUpdater) New(dryrun bool) (BrewUpdater, error) {
-	// TODO: add support for actual environment variables to override this
-	var (
+func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) {
+	brewPrefix, empty := os.LookupEnv("HOMEBREW_PREFIX")
+	if empty || brewPrefix == "" {
 		brewPrefix = "/home/linuxbrew/.linuxbrew"
+	}
+	brewRepo, empty := os.LookupEnv("HOMEBREW_REPOSITORY")
+	if empty || brewRepo == "" {
+		brewRepo = fmt.Sprintf("%s/Homebrew", brewPrefix)
+	}
+	brewCellar, empty := os.LookupEnv("HOMEBREW_CELLAR")
+	if empty || brewCellar == "" {
 		brewCellar = fmt.Sprintf("%s/Cellar", brewPrefix)
-		brewRepo   = fmt.Sprintf("%s/Homebrew", brewPrefix)
-		brewPath   = fmt.Sprintf("%s/bin/brew", brewPrefix)
-	)
+	}
+	brewPath, empty := os.LookupEnv("HOMEBREW_PATH")
+	if empty || brewPath == "" {
+		brewPath = fmt.Sprintf("%s/bin/brew", brewPrefix)
+	}
+
 	up.Environment = map[string]string{
 		"HOMEBREW_PREFIX":     brewPrefix,
 		"HOMEBREW_REPOSITORY": brewRepo,
@@ -84,7 +94,7 @@ func (up BrewUpdater) New(dryrun bool) (BrewUpdater, error) {
 		Description: "CLI Apps",
 		Enabled:     true,
 		MultiUser:   false,
-		DryRun:      dryrun,
+		DryRun:      config.DryRun,
 	}
 
 	if up.Config.DryRun {

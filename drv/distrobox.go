@@ -25,7 +25,7 @@ func (up DistroboxUpdater) Steps() int {
 	return 0
 }
 
-func (up DistroboxUpdater) New(dryrun bool) (DistroboxUpdater, error) {
+func (up DistroboxUpdater) New(initconfig UpdaterInitConfiguration) (DistroboxUpdater, error) {
 	userdesc := "Distroboxes for User:"
 	up.Config = DriverConfiguration{
 		Title:           "Distrobox",
@@ -33,7 +33,7 @@ func (up DistroboxUpdater) New(dryrun bool) (DistroboxUpdater, error) {
 		UserDescription: &userdesc,
 		Enabled:         true,
 		MultiUser:       true,
-		DryRun:          dryrun,
+		DryRun:          initconfig.DryRun,
 	}
 	up.usersEnabled = false
 	up.Tracker = nil
@@ -79,7 +79,7 @@ func (up *DistroboxUpdater) Update() (*[]CommandOutput, error) {
 	for _, user := range up.users {
 		up.Tracker.Tracker.IncrementSection(err)
 		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
-		out, err := lib.RunUID(user.UID, []string{"/usr/bin/flatpak", "update", "-y"}, nil)
+		out, err := lib.RunUID(user.UID, []string{"/usr/bin/distrobox", "upgrade", "-a"}, nil)
 		tmpout = CommandOutput{}.New(out, err)
 		if err != nil {
 			tmpout.SetFailureContext(fmt.Sprintf("Distroboxes for User: %s", user.Name))
