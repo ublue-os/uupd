@@ -18,7 +18,12 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error(fmt.Sprintf("%v, is uupd already running?", err))
 		return
 	}
-	defer lib.ReleaseLock(lock)
+	defer func() {
+		err := lib.ReleaseLock(lock)
+		if err != nil {
+			slog.Error("Failed releasing lock")
+		}
+	}()
 
 	hwCheck, err := cmd.Flags().GetBool("hw-check")
 	if err != nil {
@@ -112,7 +117,10 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if systemUpdater.Outdated {
 		const OUTDATED_WARNING = "There hasn't been an update in over a month. Consider rebooting or running updates manually"
-		lib.Notify("System Warning", OUTDATED_WARNING)
+		err := lib.Notify("System Warning", OUTDATED_WARNING)
+		if err != nil {
+			slog.Error("Failed showing warning notification")
+		}
 		slog.Warn(OUTDATED_WARNING)
 	}
 

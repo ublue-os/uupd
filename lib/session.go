@@ -13,6 +13,7 @@ type User struct {
 
 func RunUID(uid int, command []string, env map[string]string) ([]byte, error) {
 	// Just fork systemd-run, using the systemd API gave me a massive headache
+	// FIXME: use the systemd api instead
 	cmdArgs := []string{
 		"/usr/bin/systemd-run",
 		"--machine",
@@ -77,7 +78,7 @@ func Notify(summary string, body string) error {
 	}
 	for _, user := range users {
 		// we don't care if these exit
-		RunUID(user.UID, []string{"/usr/bin/notify-send", "--app-name", "uupd", summary, body}, nil)
+		_, _ = RunUID(user.UID, []string{"/usr/bin/notify-send", "--app-name", "uupd", summary, body}, nil)
 	}
 	return nil
 }

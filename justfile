@@ -70,3 +70,9 @@ container-test:
 	podman rm -f uupd-test
 clean:
 	rm -rf "$UBLUE_ROOT"
+
+lint:
+	golangci-lint run
+
+release:
+	goreleaser
