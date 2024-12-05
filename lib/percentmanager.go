@@ -3,6 +3,7 @@ package lib
 import (
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
@@ -61,6 +62,8 @@ type TrackerMessage struct {
 }
 
 func ChangeTrackerMessageFancy(writer progress.Writer, tracker *IncrementTracker, progress bool, message TrackerMessage) {
+	percentage := math.Round((float64(tracker.Tracker.Value()) / float64(tracker.Tracker.Total)) * 100)
+	fmt.Printf("\033]9;4;1;%d\a", int(percentage))
 	if !progress {
 		slog.Info("Updating",
 			slog.String("title", message.Title),

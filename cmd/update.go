@@ -24,6 +24,10 @@ func Update(cmd *cobra.Command, args []string) {
 			slog.Error("Failed releasing lock")
 		}
 	}()
+	// Disables the loading icon on the terminal
+	defer print("\033]9;4;0\a")
+	// Clears up any previous loading icon
+	print("\033]9;4;0\a")
 
 	hwCheck, err := cmd.Flags().GetBool("hw-check")
 	if err != nil {
