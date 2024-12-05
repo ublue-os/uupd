@@ -38,19 +38,25 @@ type SystemUpdater struct {
 	UpdateAvailable bool
 }
 
-type SystemDriver int
+type SystemVariation int
 
 const (
-	Bootc SystemDriver = iota
+	Bootc SystemVariation = iota
 	RpmOstree
 )
+
+type SystemDriver struct {
+	Variation           SystemVariation
+	bootcBinaryPath     string
+	rpmOstreeBinaryPath string
+}
 
 func (dr SystemDriver) Outdated() (bool, error) {
 	oneMonthAgo := time.Now().AddDate(0, -1, 0)
 	var timestamp time.Time
-	switch dr {
+	switch dr.Variation {
 	case Bootc:
-		cmd := exec.Command("bootc", "status", "--format=json")
+		cmd := exec.Command(dr.bootcBinaryPath, "status", "--format=json")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return false, err
@@ -65,7 +71,7 @@ func (dr SystemDriver) Outdated() (bool, error) {
 			return false, nil
 		}
 	case RpmOstree:
-		cmd := exec.Command("rpm-ostree", "status", "--json", "--booted")
+		cmd := exec.Command(dr.rpmOstreeBinaryPath, "status", "--json", "--booted")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return false, err
@@ -84,25 +90,28 @@ func (dr SystemDriver) Outdated() (bool, error) {
 func (dr SystemDriver) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 	var cmd *exec.Cmd = nil
-	switch dr {
+	var binaryPath string
+	switch dr.Variation {
 	case Bootc:
-		cmd = exec.Command("/usr/bin/bootc", "upgrade")
+		binaryPath = dr.bootcBinaryPath
 	case RpmOstree:
-		cmd = exec.Command("/usr/bin/rpm-ostree", "upgrade")
+		binaryPath = dr.rpmOstreeBinaryPath
 	}
+	cli := []string{binaryPath, "upgrade"}
+	cmd = exec.Command(cli[0], cli[1:]...)
 	out, err := cmd.CombinedOutput()
 	tmpout := CommandOutput{}.New(out, err)
-	if err != nil {
-		tmpout.SetFailureContext("System update")
-	}
+	tmpout.Cli = cli
+	tmpout.Failure = err != nil
+	tmpout.Context = "System Update"
 	finalOutput = append(finalOutput, *tmpout)
 	return &finalOutput, err
 }
 
 func (dr SystemDriver) UpdateAvailable() (bool, error) {
-	switch dr {
+	switch dr.Variation {
 	case Bootc:
-		cmd := exec.Command("/usr/bin/bootc", "upgrade", "--check")
+		cmd := exec.Command(dr.bootcBinaryPath, "upgrade", "--check")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return true, err
@@ -111,7 +120,7 @@ func (dr SystemDriver) UpdateAvailable() (bool, error) {
 	case RpmOstree:
 		// This function may or may not be accurate, rpm-ostree updgrade --check has issues... https://github.com/coreos/rpm-ostree/issues/1579
 		// Not worried because we will end up removing rpm-ostree from the equation soon
-		cmd := exec.Command("/usr/bin/rpm-ostree", "upgrade", "--check")
+		cmd := exec.Command(dr.rpmOstreeBinaryPath, "upgrade", "--check")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return true, err
@@ -129,8 +138,8 @@ func (up SystemUpdater) Steps() int {
 	return 0
 }
 
-func BootcCompatible() (bool, error) {
-	cmd := exec.Command("bootc", "status", "--format=json")
+func (dr SystemDriver) BootcCompatible() (bool, error) {
+	cmd := exec.Command(dr.bootcBinaryPath, "status", "--format=json")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, nil
@@ -143,12 +152,12 @@ func BootcCompatible() (bool, error) {
 	return !(status.Status.Booted.Incompatible || status.Status.Staged.Incompatible), nil
 }
 
-func (up SystemUpdater) New(initconfig UpdaterInitConfiguration) (SystemUpdater, error) {
+func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, error) {
 	up.Config = DriverConfiguration{
 		Title:       "System",
 		Description: "System Updates",
-		Enabled:     !initconfig.Ci,
-		DryRun:      initconfig.DryRun,
+		Enabled:     !config.Ci,
+		DryRun:      config.DryRun,
 	}
 
 	if up.Config.DryRun {
@@ -156,14 +165,28 @@ func (up SystemUpdater) New(initconfig UpdaterInitConfiguration) (SystemUpdater,
 		return up, nil
 	}
 
-	isBootc, err := BootcCompatible()
+	up.SystemDriver = SystemDriver{}
+	bootcBinaryPath, empty := config.Environment["UUPD_BOOTC_BINARY"]
+	if empty || bootcBinaryPath == "" {
+		up.SystemDriver.bootcBinaryPath = "/usr/bin/bootc"
+	} else {
+		up.SystemDriver.bootcBinaryPath = bootcBinaryPath
+	}
+	rpmOstreeBinaryPath, empty := config.Environment["UUPD_RPMOSTREE_BINARY"]
+	if empty || rpmOstreeBinaryPath == "" {
+		up.SystemDriver.rpmOstreeBinaryPath = "/usr/bin/rpm-ostree"
+	} else {
+		up.SystemDriver.rpmOstreeBinaryPath = rpmOstreeBinaryPath
+	}
+
+	isBootc, err := up.SystemDriver.BootcCompatible()
 	if err != nil {
 		return up, err
 	}
 	if isBootc {
-		up.SystemDriver = Bootc
+		up.SystemDriver.Variation = Bootc
 	} else {
-		up.SystemDriver = RpmOstree
+		up.SystemDriver.Variation = RpmOstree
 	}
 
 	outdated, err := up.SystemDriver.Outdated()
@@ -179,19 +202,16 @@ func (up *SystemUpdater) Check() (bool, error) {
 	if up.Config.DryRun {
 		return true, nil
 	}
+
 	updateAvailable, err := up.SystemDriver.UpdateAvailable()
 	return updateAvailable, err
 }
 
 func (up SystemUpdater) Update() (*[]CommandOutput, error) {
-	var final_output = []CommandOutput{}
-
 	if up.Config.DryRun {
-		return &final_output, nil
+		return &[]CommandOutput{}, nil
 	}
 
 	out, err := up.SystemDriver.Update()
-	final_output = append(final_output, *out...)
-
-	return &final_output, err
+	return out, err
 }
