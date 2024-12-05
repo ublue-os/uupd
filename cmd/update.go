@@ -57,8 +57,8 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	initConfiguration := drv.UpdaterInitConfiguration{}.New()
-	_, empty := os.LookupEnv("CI")
-	initConfiguration.Ci = !empty
+	_, exists := os.LookupEnv("CI")
+	initConfiguration.Ci = exists
 	initConfiguration.DryRun = dryRun
 	initConfiguration.Verbose = verboseRun
 
