@@ -166,14 +166,14 @@ func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, err
 	}
 
 	up.SystemDriver = SystemDriver{}
-	bootcBinaryPath, empty := config.Environment["UUPD_BOOTC_BINARY"]
-	if empty || bootcBinaryPath == "" {
+	bootcBinaryPath, exists := config.Environment["UUPD_BOOTC_BINARY"]
+	if !exists || bootcBinaryPath == "" {
 		up.SystemDriver.bootcBinaryPath = "/usr/bin/bootc"
 	} else {
 		up.SystemDriver.bootcBinaryPath = bootcBinaryPath
 	}
-	rpmOstreeBinaryPath, empty := config.Environment["UUPD_RPMOSTREE_BINARY"]
-	if empty || rpmOstreeBinaryPath == "" {
+	rpmOstreeBinaryPath, exists := config.Environment["UUPD_RPMOSTREE_BINARY"]
+	if !exists || rpmOstreeBinaryPath == "" {
 		up.SystemDriver.rpmOstreeBinaryPath = "/usr/bin/rpm-ostree"
 	} else {
 		up.SystemDriver.rpmOstreeBinaryPath = rpmOstreeBinaryPath

@@ -76,31 +76,32 @@ type BrewUpdater struct {
 
 func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) {
 	up.Environment = config.Environment
-	brewPrefix, empty := up.Environment["HOMEBREW_PREFIX"]
-	if empty || brewPrefix == "" {
+
+	brewPrefix, exists := up.Environment["HOMEBREW_PREFIX"]
+	if !exists || brewPrefix == "" {
 		up.BrewPrefix = "/home/linuxbrew/.linuxbrew"
 	} else {
 		up.BrewPrefix = brewPrefix
 	}
-	brewRepo, empty := up.Environment["HOMEBREW_REPOSITORY"]
-	if empty || brewRepo == "" {
+	brewRepo, exists := up.Environment["HOMEBREW_REPOSITORY"]
+	if !exists || brewRepo == "" {
 		up.BrewRepo = fmt.Sprintf("%s/Homebrew", up.BrewPrefix)
 	} else {
 		up.BrewRepo = brewRepo
 	}
-	brewCellar, empty := up.Environment["HOMEBREW_CELLAR"]
-	if empty || brewCellar == "" {
+	brewCellar, exists := up.Environment["HOMEBREW_CELLAR"]
+	if !exists || brewCellar == "" {
 		up.BrewCellar = fmt.Sprintf("%s/Cellar", up.BrewPrefix)
 	} else {
-
 		up.BrewCellar = brewCellar
 	}
-	brewPath, empty := up.Environment["HOMEBREW_PATH"]
-	if empty || brewPath == "" {
+	brewPath, exists := up.Environment["HOMEBREW_PATH"]
+	if !exists || brewPath == "" {
 		up.BrewPath = fmt.Sprintf("%s/bin/brew", up.BrewPrefix)
 	} else {
 		up.BrewPath = brewPath
 	}
+
 	up.Config = DriverConfiguration{
 		Title:       "Brew",
 		Description: "CLI Apps",
