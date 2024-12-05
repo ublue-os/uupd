@@ -8,17 +8,17 @@ import (
 )
 
 func (up BrewUpdater) GetBrewUID() (int, error) {
-	inf, err := os.Stat(up.Environment["HOMEBREW_PREFIX"])
+	inf, err := os.Stat(up.BrewPrefix)
 	if err != nil {
 		return -1, err
 	}
 
 	if !inf.IsDir() {
-		return -1, fmt.Errorf("Brew prefix: %v, is not a dir.", up.Environment["HOMEBREW_PREFIX"])
+		return -1, fmt.Errorf("Brew prefix: %v, is not a dir.", up.BrewPrefix)
 	}
 	stat, ok := inf.Sys().(*syscall.Stat_t)
 	if !ok {
-		return -1, fmt.Errorf("Unable to retriev UID info for %v", up.Environment["HOMEBREW_PREFIX"])
+		return -1, fmt.Errorf("Unable to retriev UID info for %v", up.BrewPrefix)
 	}
 	return int(stat.Uid), nil
 }
@@ -42,19 +42,24 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 		return &final_output, nil
 	}
 
-	out, err := lib.RunUID(up.BaseUser, []string{up.Environment["HOMEBREW_PATH"], "update"}, up.Environment)
+	cli := []string{up.BrewPath, "update"}
+	out, err := lib.RunUID(up.BaseUser, cli, up.Environment)
 	tmpout := CommandOutput{}.New(out, err)
+	tmpout.Context = "Brew Update"
+	tmpout.Cli = cli
+	tmpout.Failure = err != nil
 	if err != nil {
 		tmpout.SetFailureContext("Brew update")
 		final_output = append(final_output, *tmpout)
 		return &final_output, err
 	}
 
-	out, err = lib.RunUID(up.BaseUser, []string{up.Environment["HOMEBREW_PATH"], "upgrade"}, up.Environment)
+	cli = []string{up.BrewPath, "upgrade"}
+	out, err = lib.RunUID(up.BaseUser, cli, up.Environment)
 	tmpout = CommandOutput{}.New(out, err)
-	if err != nil {
-		tmpout.SetFailureContext("Brew upgrade")
-	}
+	tmpout.Context = "Brew Upgrade"
+	tmpout.Cli = cli
+	tmpout.Failure = err != nil
 	final_output = append(final_output, *tmpout)
 	return &final_output, err
 }
@@ -62,32 +67,39 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 type BrewUpdater struct {
 	Config      DriverConfiguration
 	BaseUser    int
-	Environment map[string]string
+	Environment EnvironmentMap
+	BrewRepo    string
+	BrewPrefix  string
+	BrewCellar  string
+	BrewPath    string
 }
 
 func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) {
-	brewPrefix, empty := os.LookupEnv("HOMEBREW_PREFIX")
+	up.Environment = config.Environment
+	brewPrefix, empty := up.Environment["HOMEBREW_PREFIX"]
 	if empty || brewPrefix == "" {
-		brewPrefix = "/home/linuxbrew/.linuxbrew"
+		up.BrewPrefix = "/home/linuxbrew/.linuxbrew"
+	} else {
+		up.BrewPrefix = brewPrefix
 	}
-	brewRepo, empty := os.LookupEnv("HOMEBREW_REPOSITORY")
+	brewRepo, empty := up.Environment["HOMEBREW_REPOSITORY"]
 	if empty || brewRepo == "" {
-		brewRepo = fmt.Sprintf("%s/Homebrew", brewPrefix)
+		up.BrewRepo = fmt.Sprintf("%s/Homebrew", up.BrewPrefix)
+	} else {
+		up.BrewRepo = brewRepo
 	}
-	brewCellar, empty := os.LookupEnv("HOMEBREW_CELLAR")
+	brewCellar, empty := up.Environment["HOMEBREW_CELLAR"]
 	if empty || brewCellar == "" {
-		brewCellar = fmt.Sprintf("%s/Cellar", brewPrefix)
-	}
-	brewPath, empty := os.LookupEnv("HOMEBREW_PATH")
-	if empty || brewPath == "" {
-		brewPath = fmt.Sprintf("%s/bin/brew", brewPrefix)
-	}
+		up.BrewCellar = fmt.Sprintf("%s/Cellar", up.BrewPrefix)
+	} else {
 
-	up.Environment = map[string]string{
-		"HOMEBREW_PREFIX":     brewPrefix,
-		"HOMEBREW_REPOSITORY": brewRepo,
-		"HOMEBREW_CELLAR":     brewCellar,
-		"HOMEBREW_PATH":       brewPath,
+		up.BrewCellar = brewCellar
+	}
+	brewPath, empty := up.Environment["HOMEBREW_PATH"]
+	if empty || brewPath == "" {
+		up.BrewPath = fmt.Sprintf("%s/bin/brew", up.BrewPrefix)
+	} else {
+		up.BrewPath = brewPath
 	}
 	up.Config = DriverConfiguration{
 		Title:       "Brew",
@@ -105,7 +117,7 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 	if err != nil {
 		return up, err
 	}
-
 	up.BaseUser = uid
+
 	return up, nil
 }

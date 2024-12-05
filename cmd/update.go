@@ -193,7 +193,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Info("Verbose run requested")
 
 		for _, output := range outputs {
-			slog.Info("CommandOutput", slog.String("context", output.Context), slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr))
+			slog.Info(output.Context, slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr), slog.Any("cli", output.Cli))
 		}
 
 		return
@@ -210,7 +210,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Warn("Exited with failed updates.")
 
 		for _, output := range failures {
-			slog.Info("CommandOutput", slog.String("context", output.Context), slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr))
+			slog.Info(output.Context, slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr), slog.Any("cli", output.Cli))
 		}
 
 		return
