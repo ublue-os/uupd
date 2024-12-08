@@ -57,8 +57,8 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	initConfiguration := drv.UpdaterInitConfiguration{}.New()
-	_, empty := os.LookupEnv("CI")
-	initConfiguration.Ci = !empty
+	_, exists := os.LookupEnv("CI")
+	initConfiguration.Ci = exists
 	initConfiguration.DryRun = dryRun
 	initConfiguration.Verbose = verboseRun
 
@@ -102,6 +102,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if progressEnabled {
 		go pw.Render()
+		lib.ResetOscProgress()
 	}
 
 	// -1 because 0 index
@@ -153,12 +154,15 @@ func Update(cmd *cobra.Command, args []string) {
 		tracker.IncrementSection(err)
 	}
 
-	pw.Stop()
+	if progressEnabled {
+		pw.Stop()
+		lib.ResetOscProgress()
+	}
 	if verboseRun {
 		slog.Info("Verbose run requested")
 
 		for _, output := range outputs {
-			slog.Info("CommandOutput", slog.String("context", output.Context), slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr))
+			slog.Info(output.Context, slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr), slog.Any("cli", output.Cli))
 		}
 
 		return
@@ -175,7 +179,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Warn("Exited with failed updates.")
 
 		for _, output := range failures {
-			slog.Info("CommandOutput", slog.String("context", output.Context), slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr))
+			slog.Info(output.Context, slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr), slog.Any("cli", output.Cli))
 		}
 
 		return
