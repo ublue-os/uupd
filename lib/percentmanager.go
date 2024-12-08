@@ -3,6 +3,10 @@ package lib
 import (
 	"fmt"
 	"log/slog"
+	"math"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
@@ -31,8 +35,50 @@ var CuteColors = progress.StyleColors{
 	Speed:   text.Colors{text.FgBlue},
 }
 
+func setColorsAccent(colors *progress.StyleColors, accent string) {
+	highlightColor := text.Colors{text.FgHiBlue}
+	lowColor := text.Colors{text.FgBlue}
+
+	switch accent {
+	case "blue":
+		highlightColor = text.Colors{text.FgHiBlue}
+		lowColor = text.Colors{text.FgBlue}
+	case "teal":
+		highlightColor = text.Colors{text.FgHiCyan}
+		lowColor = text.Colors{text.FgCyan}
+	case "green":
+		highlightColor = text.Colors{text.FgHiGreen}
+		lowColor = text.Colors{text.FgGreen}
+	case "yellow":
+		highlightColor = text.Colors{text.FgHiYellow}
+		lowColor = text.Colors{text.FgYellow}
+	case "orange":
+		highlightColor = text.Colors{text.FgHiYellow}
+		lowColor = text.Colors{text.FgYellow}
+	case "red":
+		highlightColor = text.Colors{text.FgHiRed}
+		lowColor = text.Colors{text.FgRed}
+	case "pink":
+		highlightColor = text.Colors{text.FgHiMagenta}
+		lowColor = text.Colors{text.FgMagenta}
+	case "purple":
+		highlightColor = text.Colors{text.FgHiMagenta}
+		lowColor = text.Colors{text.FgMagenta}
+	case "slate":
+		highlightColor = text.Colors{text.FgHiWhite}
+		lowColor = text.Colors{text.FgWhite}
+	}
+
+	colors.Percent = highlightColor
+	colors.Tracker = highlightColor
+	colors.Time = lowColor
+	colors.Value = lowColor
+	colors.Speed = lowColor
+}
+
 func NewProgressWriter() progress.Writer {
 	pw := progress.NewWriter()
+
 	pw.SetTrackerLength(25)
 	pw.Style().Visibility.TrackerOverall = true
 	pw.Style().Visibility.Time = true
@@ -44,7 +90,31 @@ func NewProgressWriter() progress.Writer {
 	pw.SetTrackerPosition(progress.PositionRight)
 	pw.SetUpdateFrequency(time.Millisecond * 100)
 	pw.Style().Options.PercentFormat = "%4.1f%%"
-	pw.Style().Colors = CuteColors
+
+	colorsSet := CuteColors
+
+	var targetUser int
+	baseUser, exists := os.LookupEnv("SUDO_UID")
+	if !exists || baseUser == "" {
+		targetUser = 0
+	} else {
+		var err error
+		targetUser, err = strconv.Atoi(baseUser)
+		if err != nil {
+			slog.Error("Failed parsing provided user as UID", slog.String("user_value", baseUser))
+			return pw
+		}
+	}
+
+	if targetUser != 0 {
+		cli := []string{"gsettings", "get", "org.gnome.desktop.interface", "accent-color"}
+		out, err := RunUID(targetUser, cli, nil)
+		accent := strings.TrimSpace(strings.ReplaceAll(string(out), "'", ""))
+		if err == nil {
+			setColorsAccent(&colorsSet, accent)
+		}
+	}
+	pw.Style().Colors = colorsSet
 	return pw
 }
 
@@ -70,6 +140,8 @@ func ChangeTrackerMessageFancy(writer progress.Writer, tracker *IncrementTracker
 		)
 		return
 	}
+	percentage := math.Round((float64(tracker.Tracker.Value()) / float64(tracker.Tracker.Total)) * 100)
+	fmt.Printf("\033]9;4;1;%d\a", int(percentage))
 	finalMessage := fmt.Sprintf("Updating %s (%s)", message.Description, message.Title)
 	writer.SetMessageLength(len(finalMessage))
 	tracker.Tracker.UpdateMessage(finalMessage)
@@ -92,4 +164,10 @@ func (it *IncrementTracker) IncrementSection(err error) {
 
 func (it *IncrementTracker) CurrentStep() int {
 	return it.incrementer.doneIncrements
+}
+
+func ResetOscProgress() {
+	// OSC escape sequence to reset all previous OSC progress hints to 0%.
+	// Documentation is on https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
+	print("\033]9;4;0\a")
 }

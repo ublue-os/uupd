@@ -8,6 +8,8 @@ import (
 	"github.com/ublue-os/uupd/lib"
 )
 
+type EnvironmentMap map[string]string
+
 type UpdaterInitConfiguration struct {
 	DryRun      bool
 	Ci          bool
@@ -42,6 +44,7 @@ type CommandOutput struct {
 	Failure bool
 	Stderr  error
 	Context string
+	Cli     []string
 }
 
 func (output CommandOutput) New(out []byte, err error) *CommandOutput {
