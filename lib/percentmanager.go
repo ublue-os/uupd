@@ -3,6 +3,7 @@ package lib
 import (
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
@@ -70,6 +71,8 @@ func ChangeTrackerMessageFancy(writer progress.Writer, tracker *IncrementTracker
 		)
 		return
 	}
+	percentage := math.Round((float64(tracker.Tracker.Value()) / float64(tracker.Tracker.Total)) * 100)
+	fmt.Printf("\033]9;4;1;%d\a", int(percentage))
 	finalMessage := fmt.Sprintf("Updating %s (%s)", message.Description, message.Title)
 	writer.SetMessageLength(len(finalMessage))
 	tracker.Tracker.UpdateMessage(finalMessage)
@@ -92,4 +95,10 @@ func (it *IncrementTracker) IncrementSection(err error) {
 
 func (it *IncrementTracker) CurrentStep() int {
 	return it.incrementer.doneIncrements
+}
+
+func ResetOscProgress() {
+	// OSC escape sequence to reset all previous OSC progress hints to 0%.
+	// Documentation is on https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
+	print("\033]9;4;0\a")
 }
