@@ -86,7 +86,6 @@ func Update(cmd *cobra.Command, args []string) {
 		enableUpd = false
 	}
 
-	// FIXME: Bootc can also only be used whenever there are no layered packages, we should account for that!
 	isBootc, err := drv.BootcCompatible(systemUpdater.BinaryPath)
 	if err != nil {
 		isBootc = false
@@ -99,19 +98,21 @@ func Update(cmd *cobra.Command, args []string) {
 	systemUpdater.Config.Enabled = enableUpd && isBootc
 	rpmOstreeUpdater.Config.Enabled = enableUpd && !isBootc
 
-	if systemUpdater.Config.Enabled {
-		enableUpd, err = systemUpdater.Check()
-	} else {
-		enableUpd, err = rpmOstreeUpdater.Check()
+	var mainSystemDriver drv.SystemUpdateDriver = systemUpdater
+	if !systemUpdater.Config.Enabled {
+		mainSystemDriver = rpmOstreeUpdater
 	}
+
+	enableUpd, err = mainSystemDriver.Check()
 	if err != nil {
 		slog.Error("Failed checking for updates")
 	}
+
 	if !enableUpd {
 		slog.Debug("No system update found, disabiling module")
 	}
 
-	totalSteps := brewUpdater.Steps() + systemUpdater.Steps() + rpmOstreeUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
+	totalSteps := brewUpdater.Steps() + mainSystemDriver.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
 	pw := lib.NewProgressWriter()
 	pw.SetNumTrackersExpected(1)
 	pw.SetAutoStop(false)
@@ -142,11 +143,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	var outputs = []drv.CommandOutput{}
 
-	if systemUpdater.Config.Enabled {
-		systemOutdated, err = systemUpdater.Outdated()
-	} else {
-		systemOutdated, err = rpmOstreeUpdater.Outdated()
-	}
+	systemOutdated, err = mainSystemDriver.Outdated()
 
 	if err != nil {
 		slog.Error("Failed checking if system is out of date")
@@ -164,11 +161,7 @@ func Update(cmd *cobra.Command, args []string) {
 	if enableUpd {
 		lib.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, lib.TrackerMessage{Title: systemUpdater.Config.Title, Description: systemUpdater.Config.Description})
 		var out *[]drv.CommandOutput
-		if rpmOstreeUpdater.Config.Enabled {
-			out, err = rpmOstreeUpdater.Update()
-		} else {
-			out, err = systemUpdater.Update()
-		}
+		out, err = mainSystemDriver.Update()
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}

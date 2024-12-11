@@ -24,6 +24,16 @@ type bootcStatus struct {
 	} `json:"status"`
 }
 
+// Workaround interface to decouple individual drivers
+// (TODO: Remove this whenever rpm-ostree driver gets deprecated)
+type SystemUpdateDriver interface {
+	Steps() int
+	Outdated() (bool, error)
+	UpdateAvailable() (bool, error)
+	Check() (bool, error)
+	Update() (*[]CommandOutput, error)
+}
+
 type SystemUpdater struct {
 	Config     DriverConfiguration
 	BinaryPath string
