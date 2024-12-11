@@ -54,9 +54,8 @@ func (dr SystemUpdater) Outdated() (bool, error) {
 
 func (dr SystemUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
-	var cmd *exec.Cmd = nil
-	var binaryPath string
-	binaryPath = dr.BinaryPath
+	var cmd *exec.Cmd
+	binaryPath := dr.BinaryPath
 	cli := []string{binaryPath, "upgrade"}
 	cmd = exec.Command(cli[0], cli[1:]...)
 	out, err := cmd.CombinedOutput()
@@ -88,8 +87,8 @@ func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, err
 	up.Config = DriverConfiguration{
 		Title:       "System",
 		Description: "System Updates",
-		Enabled:     !initconfig.Ci,
-		DryRun:      initconfig.DryRun,
+		Enabled:     !config.Ci,
+		DryRun:      config.DryRun,
 	}
 
 	if up.Config.DryRun {

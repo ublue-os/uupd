@@ -74,7 +74,7 @@ func Update(cmd *cobra.Command, args []string) {
 	distroboxUpdater.SetUsers(users)
 
 	var enableUpd bool = true
-	var systemOutdated bool = false
+	var systemOutdated bool
 
 	rpmOstreeUpdater, err := drv.RpmOstreeUpdater{}.New(*initConfiguration)
 	if err != nil {

@@ -45,13 +45,13 @@ func (dr RpmOstreeUpdater) Outdated() (bool, error) {
 
 func (dr RpmOstreeUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
-	var cmd *exec.Cmd = nil
+	var cmd *exec.Cmd
 	binaryPath := dr.BinaryPath
 	cli := []string{binaryPath, "upgrade"}
 	cmd = exec.Command(cli[0], cli[1:]...)
 	out, err := cmd.CombinedOutput()
 	tmpout := CommandOutput{}.New(out, err)
-	tmpout.Cli = cli
+	// tmpout.Cli = cli
 	tmpout.Failure = err != nil
 	tmpout.Context = "System Update"
 	finalOutput = append(finalOutput, *tmpout)
