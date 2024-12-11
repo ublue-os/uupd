@@ -1,9 +1,12 @@
 package lib
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
@@ -32,47 +35,6 @@ var CuteColors = progress.StyleColors{
 	Speed:   text.Colors{text.FgBlue},
 }
 
-func setColorsAccent(colors *progress.StyleColors, accent string) {
-	highlightColor := text.Colors{text.FgHiBlue}
-	lowColor := text.Colors{text.FgBlue}
-
-	switch accent {
-	case "blue":
-		highlightColor = text.Colors{text.FgHiBlue}
-		lowColor = text.Colors{text.FgBlue}
-	case "teal":
-		highlightColor = text.Colors{text.FgHiCyan}
-		lowColor = text.Colors{text.FgCyan}
-	case "green":
-		highlightColor = text.Colors{text.FgHiGreen}
-		lowColor = text.Colors{text.FgGreen}
-	case "yellow":
-		highlightColor = text.Colors{text.FgHiYellow}
-		lowColor = text.Colors{text.FgYellow}
-	case "orange":
-		highlightColor = text.Colors{text.FgHiYellow}
-		lowColor = text.Colors{text.FgYellow}
-	case "red":
-		highlightColor = text.Colors{text.FgHiRed}
-		lowColor = text.Colors{text.FgRed}
-	case "pink":
-		highlightColor = text.Colors{text.FgHiMagenta}
-		lowColor = text.Colors{text.FgMagenta}
-	case "purple":
-		highlightColor = text.Colors{text.FgHiMagenta}
-		lowColor = text.Colors{text.FgMagenta}
-	case "slate":
-		highlightColor = text.Colors{text.FgHiWhite}
-		lowColor = text.Colors{text.FgWhite}
-	}
-
-	colors.Percent = highlightColor
-	colors.Tracker = highlightColor
-	colors.Time = lowColor
-	colors.Value = lowColor
-	colors.Speed = lowColor
-}
-
 func NewProgressWriter() progress.Writer {
 	pw := progress.NewWriter()
 
@@ -89,6 +51,7 @@ func NewProgressWriter() progress.Writer {
 	pw.Style().Options.PercentFormat = "%4.1f%%"
 
 	colorsSet := CuteColors
+	pw.Style().Colors = colorsSet
 
 	var targetUser int
 	baseUser, exists := os.LookupEnv("SUDO_UID")
@@ -104,12 +67,27 @@ func NewProgressWriter() progress.Writer {
 	}
 
 	if targetUser != 0 {
-		cli := []string{"gsettings", "get", "org.gnome.desktop.interface", "accent-color"}
+		cli := []string{"busctl", "--user", "--json=short", "call", "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.Settings", "ReadOne", "ss", "org.freedesktop.appearance", "accent-color"}
 		out, err := RunUID(targetUser, cli, nil)
-		accent := strings.TrimSpace(strings.ReplaceAll(string(out), "'", ""))
-		if err == nil {
-			setColorsAccent(&colorsSet, accent)
+		var accent Accent
+		err = json.Unmarshal(out, &accent)
+		if err != nil {
+			pw.Style().Colors = colorsSet
+			return pw
 		}
+
+		raw_color := accent.Data[0].Data
+
+		highlightColor, lowColor := findClosestColor(raw_color)
+
+		validHighlightColor := text.Colors{highlightColor}
+		validLowColor := text.Colors{lowColor}
+
+		colorsSet.Percent = validHighlightColor
+		colorsSet.Tracker = validHighlightColor
+		colorsSet.Time = validLowColor
+		colorsSet.Value = validLowColor
+		colorsSet.Speed = validLowColor
 	}
 	pw.Style().Colors = colorsSet
 	return pw
