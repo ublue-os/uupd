@@ -62,20 +62,6 @@ func Update(cmd *cobra.Command, args []string) {
 	initConfiguration.DryRun = dryRun
 	initConfiguration.Verbose = verboseRun
 
-	systemUpdater, err := drv.SystemUpdater{}.New(*initConfiguration)
-	if err != nil {
-		systemUpdater.Config.Enabled = false
-	} else {
-		enableUpd, err := systemUpdater.Check()
-		if err != nil {
-			slog.Error("Failed checking for updates")
-		}
-		systemUpdater.Config.Enabled = enableUpd
-		if !enableUpd {
-			slog.Debug("No system update found, disabiling module")
-		}
-	}
-
 	brewUpdater, err := drv.BrewUpdater{}.New(*initConfiguration)
 	brewUpdater.Config.Enabled = err == nil
 
@@ -87,7 +73,49 @@ func Update(cmd *cobra.Command, args []string) {
 	distroboxUpdater.Config.Enabled = err == nil
 	distroboxUpdater.SetUsers(users)
 
-	totalSteps := brewUpdater.Steps() + systemUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
+	var enableUpd bool = true
+	var systemOutdated bool
+
+	rpmOstreeUpdater, err := drv.RpmOstreeUpdater{}.New(*initConfiguration)
+	if err != nil {
+		enableUpd = false
+	}
+
+	systemUpdater, err := drv.SystemUpdater{}.New(*initConfiguration)
+	if err != nil {
+		enableUpd = false
+	}
+
+	isBootc, err := drv.BootcCompatible(systemUpdater.BinaryPath)
+	if err != nil {
+		isBootc = false
+	}
+
+	if !isBootc {
+		slog.Debug("Using rpm-ostree fallback as system driver")
+	}
+
+	systemUpdater.Config.Enabled = enableUpd && isBootc
+	rpmOstreeUpdater.Config.Enabled = enableUpd && !isBootc
+
+	var mainSystemDriver drv.SystemUpdateDriver = systemUpdater
+	if !systemUpdater.Config.Enabled {
+		mainSystemDriver = rpmOstreeUpdater
+	}
+
+	enableUpd, err = mainSystemDriver.Check()
+	if err != nil {
+		slog.Error("Failed checking for updates")
+	}
+
+	if !enableUpd {
+		slog.Debug("No system update found, disabiling module")
+	}
+
+	totalSteps := brewUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
+	if enableUpd {
+		totalSteps += mainSystemDriver.Steps()
+	}
 	pw := lib.NewProgressWriter()
 	pw.SetNumTrackersExpected(1)
 	pw.SetAutoStop(false)
@@ -118,7 +146,13 @@ func Update(cmd *cobra.Command, args []string) {
 
 	var outputs = []drv.CommandOutput{}
 
-	if systemUpdater.Outdated {
+	systemOutdated, err = mainSystemDriver.Outdated()
+
+	if err != nil {
+		slog.Error("Failed checking if system is out of date")
+	}
+
+	if systemOutdated {
 		const OUTDATED_WARNING = "There hasn't been an update in over a month. Consider rebooting or running updates manually"
 		err := lib.Notify("System Warning", OUTDATED_WARNING)
 		if err != nil {
@@ -127,9 +161,10 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Warn(OUTDATED_WARNING)
 	}
 
-	if systemUpdater.Config.Enabled {
+	if enableUpd {
 		lib.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, lib.TrackerMessage{Title: systemUpdater.Config.Title, Description: systemUpdater.Config.Description})
-		out, err := systemUpdater.Update()
+		var out *[]drv.CommandOutput
+		out, err = mainSystemDriver.Update()
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}

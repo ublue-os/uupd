@@ -1,19 +1,26 @@
 package cmd
 
 import (
+	"log/slog"
+
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/drv"
-	"log"
 )
 
 func UpdateCheck(cmd *cobra.Command, args []string) {
-	systemDriver, err := drv.GetSystemUpdateDriver()
+	systemUpdater, err := drv.SystemUpdater{}.New(drv.UpdaterInitConfiguration{})
 	if err != nil {
-		log.Fatalf("Failed to get system update driver: %v", err)
+		slog.Error("Failed getting system driver", slog.Any("error", err))
+		return
 	}
-	update, err := systemDriver.UpdateAvailable()
+	updateAvailable, err := systemUpdater.Check()
 	if err != nil {
-		log.Fatalf("Failed to check for updates: %v", err)
+		slog.Error("Failed checking for updates", slog.Any("error", err))
+		return
 	}
-	log.Printf("Update Available: %v", update)
+	if updateAvailable {
+		slog.Info("Update Available")
+	} else {
+		slog.Info("No updates available")
+	}
 }
