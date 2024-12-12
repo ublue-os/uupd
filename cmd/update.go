@@ -112,7 +112,10 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Debug("No system update found, disabiling module")
 	}
 
-	totalSteps := brewUpdater.Steps() + mainSystemDriver.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
+	totalSteps := brewUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
+	if enableUpd {
+		totalSteps += mainSystemDriver.Steps()
+	}
 	pw := lib.NewProgressWriter()
 	pw.SetNumTrackersExpected(1)
 	pw.SetAutoStop(false)
