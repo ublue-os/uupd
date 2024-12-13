@@ -1,4 +1,4 @@
-package lib
+package session
 
 import (
 	"fmt"
@@ -12,8 +12,7 @@ type User struct {
 }
 
 func RunUID(uid int, command []string, env map[string]string) ([]byte, error) {
-	// Just fork systemd-run, using the systemd API gave me a massive headache
-	// FIXME: use the systemd api instead
+	// Just fork systemd-run, we don't need to rewrite systemd-run with dbus
 	cmdArgs := []string{
 		"/usr/bin/systemd-run",
 		"--machine",

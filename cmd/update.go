@@ -9,17 +9,19 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
 	"github.com/ublue-os/uupd/drv"
-	"github.com/ublue-os/uupd/lib"
+	"github.com/ublue-os/uupd/pkg/filelock"
+	"github.com/ublue-os/uupd/pkg/percent"
+	"github.com/ublue-os/uupd/pkg/session"
 )
 
 func Update(cmd *cobra.Command, args []string) {
-	lock, err := lib.AcquireLock()
+	lock, err := filelock.AcquireLock()
 	if err != nil {
 		slog.Error(fmt.Sprintf("%v, is uupd already running?", err))
 		return
 	}
 	defer func() {
-		err := lib.ReleaseLock(lock)
+		err := filelock.ReleaseLock(lock)
 		if err != nil {
 			slog.Error("Failed releasing lock")
 		}
@@ -50,7 +52,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Info("Hardware checks passed")
 	}
 
-	users, err := lib.ListUsers()
+	users, err := session.ListUsers()
 	if err != nil {
 		slog.Error("Failed to list users", "users", users)
 		return
@@ -116,7 +118,7 @@ func Update(cmd *cobra.Command, args []string) {
 	if enableUpd {
 		totalSteps += mainSystemDriver.Steps()
 	}
-	pw := lib.NewProgressWriter()
+	pw := percent.NewProgressWriter()
 	pw.SetNumTrackersExpected(1)
 	pw.SetAutoStop(false)
 
@@ -130,11 +132,11 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if progressEnabled {
 		go pw.Render()
-		lib.ResetOscProgress()
+		percent.ResetOscProgress()
 	}
 
 	// -1 because 0 index
-	tracker := lib.NewIncrementTracker(&progress.Tracker{Message: "Updating", Units: progress.UnitsDefault, Total: int64(totalSteps - 1)}, totalSteps-1)
+	tracker := percent.NewIncrementTracker(&progress.Tracker{Message: "Updating", Units: progress.UnitsDefault, Total: int64(totalSteps - 1)}, totalSteps-1)
 	pw.AppendTracker(tracker.Tracker)
 
 	var trackerConfig = &drv.TrackerConfiguration{
@@ -155,7 +157,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if systemOutdated {
 		const OUTDATED_WARNING = "There hasn't been an update in over a month. Consider rebooting or running updates manually"
-		err := lib.Notify("System Warning", OUTDATED_WARNING)
+		err := session.Notify("System Warning", OUTDATED_WARNING)
 		if err != nil {
 			slog.Error("Failed showing warning notification")
 		}
@@ -163,7 +165,7 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	if enableUpd {
-		lib.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, lib.TrackerMessage{Title: systemUpdater.Config.Title, Description: systemUpdater.Config.Description})
+		percent.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, percent.TrackerMessage{Title: systemUpdater.Config.Title, Description: systemUpdater.Config.Description})
 		var out *[]drv.CommandOutput
 		out, err = mainSystemDriver.Update()
 		outputs = append(outputs, *out...)
@@ -171,7 +173,7 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	if brewUpdater.Config.Enabled {
-		lib.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, lib.TrackerMessage{Title: brewUpdater.Config.Title, Description: brewUpdater.Config.Description})
+		percent.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, percent.TrackerMessage{Title: brewUpdater.Config.Title, Description: brewUpdater.Config.Description})
 		out, err := brewUpdater.Update()
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
@@ -191,7 +193,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if progressEnabled {
 		pw.Stop()
-		lib.ResetOscProgress()
+		percent.ResetOscProgress()
 	}
 	if verboseRun {
 		slog.Info("Verbose run requested")

@@ -2,9 +2,10 @@ package drv
 
 import (
 	"fmt"
-	"github.com/ublue-os/uupd/lib"
 	"os"
 	"syscall"
+
+	"github.com/ublue-os/uupd/pkg/session"
 )
 
 func (up BrewUpdater) GetBrewUID() (int, error) {
@@ -43,7 +44,7 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 	}
 
 	cli := []string{up.BrewPath, "update"}
-	out, err := lib.RunUID(up.BaseUser, cli, up.Config.Environment)
+	out, err := session.RunUID(up.BaseUser, cli, up.Config.Environment)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Update"
 	tmpout.Cli = cli
@@ -55,7 +56,7 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 	}
 
 	cli = []string{up.BrewPath, "upgrade"}
-	out, err = lib.RunUID(up.BaseUser, cli, up.Config.Environment)
+	out, err = session.RunUID(up.BaseUser, cli, up.Config.Environment)
 	tmpout = CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Upgrade"
 	tmpout.Cli = cli

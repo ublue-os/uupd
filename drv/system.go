@@ -95,8 +95,8 @@ func (up SystemUpdater) Steps() int {
 
 func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, error) {
 	up.Config = DriverConfiguration{
-		Title:       "System",
-		Description: "System Updates",
+		Title:       "Bootc",
+		Description: "System Image",
 		Enabled:     !config.Ci,
 		DryRun:      config.DryRun,
 		Environment: config.Environment,

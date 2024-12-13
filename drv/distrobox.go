@@ -1,14 +1,15 @@
 package drv
 
 import (
-	"github.com/ublue-os/uupd/lib"
+	"github.com/ublue-os/uupd/pkg/percent"
+	"github.com/ublue-os/uupd/pkg/session"
 )
 
 type DistroboxUpdater struct {
 	Config       DriverConfiguration
 	Tracker      *TrackerConfiguration
 	binaryPath   string
-	users        []lib.User
+	users        []session.User
 	usersEnabled bool
 }
 
@@ -47,7 +48,7 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 	return up, nil
 }
 
-func (up *DistroboxUpdater) SetUsers(users []lib.User) {
+func (up *DistroboxUpdater) SetUsers(users []session.User) {
 	up.users = users
 	up.usersEnabled = true
 }
@@ -60,20 +61,20 @@ func (up *DistroboxUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 
 	if up.Config.DryRun {
-		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
 		up.Tracker.Tracker.IncrementSection(nil)
 
 		var err error = nil
 		for _, user := range up.users {
 			up.Tracker.Tracker.IncrementSection(err)
-			lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
+			percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
 		}
 		return &finalOutput, nil
 	}
 
-	lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+	percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
 	cli := []string{up.binaryPath, "upgrade", "-a"}
-	out, err := lib.RunUID(0, cli, nil)
+	out, err := session.RunUID(0, cli, nil)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = up.Config.Description
 	tmpout.Cli = cli
@@ -84,9 +85,9 @@ func (up *DistroboxUpdater) Update() (*[]CommandOutput, error) {
 	for _, user := range up.users {
 		up.Tracker.Tracker.IncrementSection(err)
 		context := *up.Config.UserDescription + " " + user.Name
-		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
+		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
 		cli := []string{up.binaryPath, "upgrade", "-a"}
-		out, err := lib.RunUID(user.UID, cli, nil)
+		out, err := session.RunUID(user.UID, cli, nil)
 		tmpout = CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli
