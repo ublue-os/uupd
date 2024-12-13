@@ -99,13 +99,14 @@ func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, err
 		Description: "System Updates",
 		Enabled:     !config.Ci,
 		DryRun:      config.DryRun,
+		Environment: config.Environment,
 	}
 
 	if up.Config.DryRun {
 		return up, nil
 	}
 
-	bootcBinaryPath, exists := config.Environment["UUPD_BOOTC_BINARY"]
+	bootcBinaryPath, exists := up.Config.Environment["UUPD_BOOTC_BINARY"]
 	if !exists || bootcBinaryPath == "" {
 		up.BinaryPath = "/usr/bin/bootc"
 	} else {

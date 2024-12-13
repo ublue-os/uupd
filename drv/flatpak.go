@@ -1,7 +1,6 @@
 package drv
 
 import (
-	"fmt"
 	"os/exec"
 
 	"github.com/ublue-os/uupd/lib"
@@ -10,6 +9,7 @@ import (
 type FlatpakUpdater struct {
 	Config       DriverConfiguration
 	Tracker      *TrackerConfiguration
+	binaryPath   string
 	users        []lib.User
 	usersEnabled bool
 }
@@ -25,7 +25,7 @@ func (up FlatpakUpdater) Steps() int {
 	return 0
 }
 
-func (up FlatpakUpdater) New(initconfig UpdaterInitConfiguration) (FlatpakUpdater, error) {
+func (up FlatpakUpdater) New(config UpdaterInitConfiguration) (FlatpakUpdater, error) {
 	userdesc := "Apps for User:"
 	up.Config = DriverConfiguration{
 		Title:           "Flatpak",
@@ -33,10 +33,18 @@ func (up FlatpakUpdater) New(initconfig UpdaterInitConfiguration) (FlatpakUpdate
 		UserDescription: &userdesc,
 		Enabled:         true,
 		MultiUser:       true,
-		DryRun:          initconfig.DryRun,
+		DryRun:          config.DryRun,
+		Environment:     config.Environment,
 	}
 	up.usersEnabled = false
 	up.Tracker = nil
+
+	binaryPath, exists := up.Config.Environment["UUPD_FLATPAK_BINARY"]
+	if !exists || binaryPath == "" {
+		up.binaryPath = "/usr/bin/flatpak"
+	} else {
+		up.binaryPath = binaryPath
+	}
 
 	return up, nil
 }
@@ -66,23 +74,26 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	}
 
 	lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
-	flatpakCmd := exec.Command("/usr/bin/flatpak", "update", "-y")
+	cli := []string{up.binaryPath, "update", "-y"}
+	flatpakCmd := exec.Command(cli[0], cli[1:]...)
 	out, err := flatpakCmd.CombinedOutput()
 	tmpout := CommandOutput{}.New(out, err)
-	if err != nil {
-		tmpout.SetFailureContext("Flatpak System Apps")
-	}
+	tmpout.Context = up.Config.Description
+	tmpout.Cli = cli
+	tmpout.Failure = err != nil
 	finalOutput = append(finalOutput, *tmpout)
 
 	err = nil
 	for _, user := range up.users {
 		up.Tracker.Tracker.IncrementSection(err)
-		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
-		out, err := lib.RunUID(user.UID, []string{"/usr/bin/flatpak", "update", "-y"}, nil)
+		context := *up.Config.UserDescription + " " + user.Name
+		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: context})
+		cli := []string{up.binaryPath, "update", "-y"}
+		out, err := lib.RunUID(user.UID, cli, nil)
 		tmpout = CommandOutput{}.New(out, err)
-		if err != nil {
-			tmpout.SetFailureContext(fmt.Sprintf("Flatpak User: %s", user.Name))
-		}
+		tmpout.Context = context
+		tmpout.Cli = cli
+		tmpout.Failure = err != nil
 		finalOutput = append(finalOutput, *tmpout)
 	}
 	return &finalOutput, nil

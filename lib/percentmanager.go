@@ -1,8 +1,12 @@
 package lib
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
@@ -33,6 +37,7 @@ var CuteColors = progress.StyleColors{
 
 func NewProgressWriter() progress.Writer {
 	pw := progress.NewWriter()
+
 	pw.SetTrackerLength(25)
 	pw.Style().Visibility.TrackerOverall = true
 	pw.Style().Visibility.Time = true
@@ -44,7 +49,47 @@ func NewProgressWriter() progress.Writer {
 	pw.SetTrackerPosition(progress.PositionRight)
 	pw.SetUpdateFrequency(time.Millisecond * 100)
 	pw.Style().Options.PercentFormat = "%4.1f%%"
-	pw.Style().Colors = CuteColors
+
+	colorsSet := CuteColors
+	pw.Style().Colors = colorsSet
+
+	var targetUser int
+	baseUser, exists := os.LookupEnv("SUDO_UID")
+	if !exists || baseUser == "" {
+		targetUser = 0
+	} else {
+		var err error
+		targetUser, err = strconv.Atoi(baseUser)
+		if err != nil {
+			slog.Error("Failed parsing provided user as UID", slog.String("user_value", baseUser))
+			return pw
+		}
+	}
+
+	if targetUser != 0 {
+		cli := []string{"busctl", "--user", "--json=short", "call", "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.Settings", "ReadOne", "ss", "org.freedesktop.appearance", "accent-color"}
+		out, err := RunUID(targetUser, cli, nil)
+		var accent Accent
+		err = json.Unmarshal(out, &accent)
+		if err != nil {
+			pw.Style().Colors = colorsSet
+			return pw
+		}
+
+		raw_color := accent.Data[0].Data
+
+		highlightColor, lowColor := findClosestColor(raw_color)
+
+		validHighlightColor := text.Colors{highlightColor}
+		validLowColor := text.Colors{lowColor}
+
+		colorsSet.Percent = validHighlightColor
+		colorsSet.Tracker = validHighlightColor
+		colorsSet.Time = validLowColor
+		colorsSet.Value = validLowColor
+		colorsSet.Speed = validLowColor
+	}
+	pw.Style().Colors = colorsSet
 	return pw
 }
 
@@ -70,6 +115,8 @@ func ChangeTrackerMessageFancy(writer progress.Writer, tracker *IncrementTracker
 		)
 		return
 	}
+	percentage := math.Round((float64(tracker.Tracker.Value()) / float64(tracker.Tracker.Total)) * 100)
+	fmt.Printf("\033]9;4;1;%d\a", int(percentage))
 	finalMessage := fmt.Sprintf("Updating %s (%s)", message.Description, message.Title)
 	writer.SetMessageLength(len(finalMessage))
 	tracker.Tracker.UpdateMessage(finalMessage)
@@ -92,4 +139,10 @@ func (it *IncrementTracker) IncrementSection(err error) {
 
 func (it *IncrementTracker) CurrentStep() int {
 	return it.incrementer.doneIncrements
+}
+
+func ResetOscProgress() {
+	// OSC escape sequence to reset all previous OSC progress hints to 0%.
+	// Documentation is on https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
+	print("\033]9;4;0\a")
 }

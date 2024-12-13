@@ -8,11 +8,13 @@ import (
 	"github.com/ublue-os/uupd/lib"
 )
 
+type EnvironmentMap map[string]string
+
 type UpdaterInitConfiguration struct {
 	DryRun      bool
 	Ci          bool
 	Verbose     bool
-	Environment map[string]string
+	Environment EnvironmentMap
 }
 
 func GetEnvironment(data []string, getkeyval func(item string) (key, val string)) map[string]string {
@@ -42,6 +44,7 @@ type CommandOutput struct {
 	Failure bool
 	Stderr  error
 	Context string
+	Cli     []string
 }
 
 func (output CommandOutput) New(out []byte, err error) *CommandOutput {
@@ -64,6 +67,7 @@ type DriverConfiguration struct {
 	Enabled         bool
 	MultiUser       bool
 	DryRun          bool
+	Environment     EnvironmentMap
 	UserDescription *string
 }
 
