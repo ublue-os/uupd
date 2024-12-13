@@ -6,8 +6,6 @@ import (
 	. "github.com/jedib0t/go-pretty/v6/text"
 )
 
-// FIXME: REFACTOR THIS. it was written by chatty jeeps since i didnt know how to implement this
-
 // Accent color portal return as of xdg-desktop-portal-gnome 47.1
 type Accent struct {
 	Type string `json:"type"`
