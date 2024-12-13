@@ -43,7 +43,7 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 	}
 
 	cli := []string{up.BrewPath, "update"}
-	out, err := lib.RunUID(up.BaseUser, cli, up.Environment)
+	out, err := lib.RunUID(up.BaseUser, cli, up.Config.Environment)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Update"
 	tmpout.Cli = cli
@@ -55,7 +55,7 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 	}
 
 	cli = []string{up.BrewPath, "upgrade"}
-	out, err = lib.RunUID(up.BaseUser, cli, up.Environment)
+	out, err = lib.RunUID(up.BaseUser, cli, up.Config.Environment)
 	tmpout = CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Upgrade"
 	tmpout.Cli = cli
@@ -65,42 +65,15 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 }
 
 type BrewUpdater struct {
-	Config      DriverConfiguration
-	BaseUser    int
-	Environment EnvironmentMap
-	BrewRepo    string
-	BrewPrefix  string
-	BrewCellar  string
-	BrewPath    string
+	Config     DriverConfiguration
+	BaseUser   int
+	BrewRepo   string
+	BrewPrefix string
+	BrewCellar string
+	BrewPath   string
 }
 
 func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) {
-	up.Environment = config.Environment
-
-	brewPrefix, exists := up.Environment["HOMEBREW_PREFIX"]
-	if !exists || brewPrefix == "" {
-		up.BrewPrefix = "/home/linuxbrew/.linuxbrew"
-	} else {
-		up.BrewPrefix = brewPrefix
-	}
-	brewRepo, exists := up.Environment["HOMEBREW_REPOSITORY"]
-	if !exists || brewRepo == "" {
-		up.BrewRepo = fmt.Sprintf("%s/Homebrew", up.BrewPrefix)
-	} else {
-		up.BrewRepo = brewRepo
-	}
-	brewCellar, exists := up.Environment["HOMEBREW_CELLAR"]
-	if !exists || brewCellar == "" {
-		up.BrewCellar = fmt.Sprintf("%s/Cellar", up.BrewPrefix)
-	} else {
-		up.BrewCellar = brewCellar
-	}
-	brewPath, exists := up.Environment["HOMEBREW_PATH"]
-	if !exists || brewPath == "" {
-		up.BrewPath = fmt.Sprintf("%s/bin/brew", up.BrewPrefix)
-	} else {
-		up.BrewPath = brewPath
-	}
 
 	up.Config = DriverConfiguration{
 		Title:       "Brew",
@@ -108,6 +81,32 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 		Enabled:     true,
 		MultiUser:   false,
 		DryRun:      config.DryRun,
+		Environment: config.Environment,
+	}
+
+	brewPrefix, exists := up.Config.Environment["HOMEBREW_PREFIX"]
+	if !exists || brewPrefix == "" {
+		up.BrewPrefix = "/home/linuxbrew/.linuxbrew"
+	} else {
+		up.BrewPrefix = brewPrefix
+	}
+	brewRepo, exists := up.Config.Environment["HOMEBREW_REPOSITORY"]
+	if !exists || brewRepo == "" {
+		up.BrewRepo = fmt.Sprintf("%s/Homebrew", up.BrewPrefix)
+	} else {
+		up.BrewRepo = brewRepo
+	}
+	brewCellar, exists := up.Config.Environment["HOMEBREW_CELLAR"]
+	if !exists || brewCellar == "" {
+		up.BrewCellar = fmt.Sprintf("%s/Cellar", up.BrewPrefix)
+	} else {
+		up.BrewCellar = brewCellar
+	}
+	brewPath, exists := up.Config.Environment["HOMEBREW_PATH"]
+	if !exists || brewPath == "" {
+		up.BrewPath = fmt.Sprintf("%s/bin/brew", up.BrewPrefix)
+	} else {
+		up.BrewPath = brewPath
 	}
 
 	if up.Config.DryRun {

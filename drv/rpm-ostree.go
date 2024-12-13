@@ -96,13 +96,14 @@ func (up RpmOstreeUpdater) New(config UpdaterInitConfiguration) (RpmOstreeUpdate
 		Description: "System Updates",
 		Enabled:     !config.Ci,
 		DryRun:      config.DryRun,
+		Environment: config.Environment,
 	}
 
 	if up.Config.DryRun {
 		return up, nil
 	}
 
-	binaryPath, exists := config.Environment["UUPD_RPMOSTREE_BINARY"]
+	binaryPath, exists := up.Config.Environment["UUPD_RPMOSTREE_BINARY"]
 	if !exists || binaryPath == "" {
 		up.BinaryPath = "/usr/bin/rpm-ostree"
 	} else {

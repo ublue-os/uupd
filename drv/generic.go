@@ -14,7 +14,7 @@ type UpdaterInitConfiguration struct {
 	DryRun      bool
 	Ci          bool
 	Verbose     bool
-	Environment map[string]string
+	Environment EnvironmentMap
 }
 
 func GetEnvironment(data []string, getkeyval func(item string) (key, val string)) map[string]string {
@@ -67,6 +67,7 @@ type DriverConfiguration struct {
 	Enabled         bool
 	MultiUser       bool
 	DryRun          bool
+	Environment     EnvironmentMap
 	UserDescription *string
 }
 

@@ -32,11 +32,12 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 		Enabled:         true,
 		MultiUser:       true,
 		DryRun:          config.DryRun,
+		Environment:     config.Environment,
 	}
 	up.usersEnabled = false
 	up.Tracker = nil
 
-	binaryPath, exists := config.Environment["UUPD_DISTROBOX_BINARY"]
+	binaryPath, exists := up.Config.Environment["UUPD_DISTROBOX_BINARY"]
 	if !exists || binaryPath == "" {
 		up.binaryPath = "/usr/bin/distrobox"
 	} else {

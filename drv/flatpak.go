@@ -34,11 +34,12 @@ func (up FlatpakUpdater) New(config UpdaterInitConfiguration) (FlatpakUpdater, e
 		Enabled:         true,
 		MultiUser:       true,
 		DryRun:          config.DryRun,
+		Environment:     config.Environment,
 	}
 	up.usersEnabled = false
 	up.Tracker = nil
 
-	binaryPath, exists := config.Environment["UUPD_FLATPAK_BINARY"]
+	binaryPath, exists := up.Config.Environment["UUPD_FLATPAK_BINARY"]
 	if !exists || binaryPath == "" {
 		up.binaryPath = "/usr/bin/flatpak"
 	} else {
