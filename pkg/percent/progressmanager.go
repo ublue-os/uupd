@@ -1,4 +1,4 @@
-package lib
+package percent
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/jedib0t/go-pretty/v6/text"
+	"github.com/ublue-os/uupd/pkg/session"
 )
 
 type Incrementer struct {
@@ -50,8 +51,7 @@ func NewProgressWriter() progress.Writer {
 	pw.SetUpdateFrequency(time.Millisecond * 100)
 	pw.Style().Options.PercentFormat = "%4.1f%%"
 
-	colorsSet := CuteColors
-	pw.Style().Colors = colorsSet
+	pw.Style().Colors = CuteColors
 
 	var targetUser int
 	baseUser, exists := os.LookupEnv("SUDO_UID")
@@ -67,12 +67,16 @@ func NewProgressWriter() progress.Writer {
 	}
 
 	if targetUser != 0 {
+		var accentColorSet progress.StyleColors
+		// Get accent color: https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html
 		cli := []string{"busctl", "--user", "--json=short", "call", "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.Settings", "ReadOne", "ss", "org.freedesktop.appearance", "accent-color"}
-		out, err := RunUID(targetUser, cli, nil)
+		out, err := session.RunUID(targetUser, cli, nil)
+		if err != nil {
+			return pw
+		}
 		var accent Accent
 		err = json.Unmarshal(out, &accent)
 		if err != nil {
-			pw.Style().Colors = colorsSet
 			return pw
 		}
 
@@ -83,13 +87,13 @@ func NewProgressWriter() progress.Writer {
 		validHighlightColor := text.Colors{highlightColor}
 		validLowColor := text.Colors{lowColor}
 
-		colorsSet.Percent = validHighlightColor
-		colorsSet.Tracker = validHighlightColor
-		colorsSet.Time = validLowColor
-		colorsSet.Value = validLowColor
-		colorsSet.Speed = validLowColor
+		accentColorSet.Percent = validHighlightColor
+		accentColorSet.Tracker = validHighlightColor
+		accentColorSet.Time = validLowColor
+		accentColorSet.Value = validLowColor
+		accentColorSet.Speed = validLowColor
+		pw.Style().Colors = accentColorSet
 	}
-	pw.Style().Colors = colorsSet
 	return pw
 }
 

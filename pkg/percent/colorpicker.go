@@ -1,4 +1,4 @@
-package lib
+package percent
 
 import (
 	"math"

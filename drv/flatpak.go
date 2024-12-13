@@ -3,14 +3,15 @@ package drv
 import (
 	"os/exec"
 
-	"github.com/ublue-os/uupd/lib"
+	"github.com/ublue-os/uupd/pkg/percent"
+	"github.com/ublue-os/uupd/pkg/session"
 )
 
 type FlatpakUpdater struct {
 	Config       DriverConfiguration
 	Tracker      *TrackerConfiguration
 	binaryPath   string
-	users        []lib.User
+	users        []session.User
 	usersEnabled bool
 }
 
@@ -49,7 +50,7 @@ func (up FlatpakUpdater) New(config UpdaterInitConfiguration) (FlatpakUpdater, e
 	return up, nil
 }
 
-func (up *FlatpakUpdater) SetUsers(users []lib.User) {
+func (up *FlatpakUpdater) SetUsers(users []session.User) {
 	up.users = users
 	up.usersEnabled = true
 }
@@ -62,18 +63,18 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 
 	if up.Config.DryRun {
-		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
 		up.Tracker.Tracker.IncrementSection(nil)
 
 		var err error = nil
 		for _, user := range up.users {
 			up.Tracker.Tracker.IncrementSection(err)
-			lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
+			percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
 		}
 		return &finalOutput, nil
 	}
 
-	lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+	percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
 	cli := []string{up.binaryPath, "update", "-y"}
 	flatpakCmd := exec.Command(cli[0], cli[1:]...)
 	out, err := flatpakCmd.CombinedOutput()
@@ -87,9 +88,9 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	for _, user := range up.users {
 		up.Tracker.Tracker.IncrementSection(err)
 		context := *up.Config.UserDescription + " " + user.Name
-		lib.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, lib.TrackerMessage{Title: up.Config.Title, Description: context})
+		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: context})
 		cli := []string{up.binaryPath, "update", "-y"}
-		out, err := lib.RunUID(user.UID, cli, nil)
+		out, err := session.RunUID(user.UID, cli, nil)
 		tmpout = CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli

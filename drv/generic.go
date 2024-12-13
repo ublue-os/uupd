@@ -5,7 +5,8 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
-	"github.com/ublue-os/uupd/lib"
+	"github.com/ublue-os/uupd/pkg/percent"
+	"github.com/ublue-os/uupd/pkg/session"
 )
 
 type EnvironmentMap map[string]string
@@ -72,7 +73,7 @@ type DriverConfiguration struct {
 }
 
 type TrackerConfiguration struct {
-	Tracker  *lib.IncrementTracker
+	Tracker  *percent.IncrementTracker
 	Writer   *progress.Writer
 	Progress bool
 }
@@ -86,5 +87,5 @@ type UpdateDriver interface {
 
 type MultiUserUpdateDriver interface {
 	*UpdateDriver
-	SetUsers(users []lib.User)
+	SetUsers(users []session.User)
 }

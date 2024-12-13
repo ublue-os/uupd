@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/ublue-os/uupd/lib"
+	"github.com/ublue-os/uupd/pkg/filelock"
 )
 
 func Wait(cmd *cobra.Command, args []string) {
@@ -22,7 +22,7 @@ func Wait(cmd *cobra.Command, args []string) {
 			break
 		}
 
-		if lib.IsFileLocked(file) {
+		if filelock.IsFileLocked(file) {
 			file.Close()
 			log.Printf("Waiting for lockfile: %s", lockFilePath)
 		} else {

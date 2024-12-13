@@ -1,4 +1,4 @@
-package lib
+package filelock
 
 import (
 	"fmt"
