@@ -2,7 +2,9 @@ package drv
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/ublue-os/uupd/pkg/session"
@@ -31,9 +33,8 @@ func (up BrewUpdater) Steps() int {
 	return 0
 }
 
-func (up BrewUpdater) Check() (*[]CommandOutput, error) {
-	// TODO: implement
-	return nil, nil
+func (up BrewUpdater) Check() (bool, error) {
+	return true, nil
 }
 
 func (up BrewUpdater) Update() (*[]CommandOutput, error) {
@@ -44,7 +45,7 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 	}
 
 	cli := []string{up.BrewPath, "update"}
-	out, err := session.RunUID(up.BaseUser, cli, up.Config.Environment)
+	out, err := session.RunUID(up.Config.logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Update"
 	tmpout.Cli = cli
@@ -56,7 +57,7 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 	}
 
 	cli = []string{up.BrewPath, "upgrade"}
-	out, err = session.RunUID(up.BaseUser, cli, up.Config.Environment)
+	out, err = session.RunUID(up.Config.logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
 	tmpout = CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Upgrade"
 	tmpout.Cli = cli
@@ -75,7 +76,6 @@ type BrewUpdater struct {
 }
 
 func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) {
-
 	up.Config = DriverConfiguration{
 		Title:       "Brew",
 		Description: "CLI Apps",
@@ -84,6 +84,7 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 		DryRun:      config.DryRun,
 		Environment: config.Environment,
 	}
+	up.Config.logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 
 	brewPrefix, exists := up.Config.Environment["HOMEBREW_PREFIX"]
 	if !exists || brewPrefix == "" {
@@ -121,4 +122,12 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 	up.BaseUser = uid
 
 	return up, nil
+}
+
+func (up *BrewUpdater) Logger() *slog.Logger {
+	return up.Config.logger
+}
+
+func (up *BrewUpdater) SetLogger(logger *slog.Logger) {
+	up.Config.logger = logger
 }

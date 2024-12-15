@@ -5,6 +5,8 @@ package drv
 
 import (
 	"encoding/json"
+	"github.com/ublue-os/uupd/pkg/session"
+	"log/slog"
 	"os/exec"
 	"strings"
 	"time"
@@ -21,15 +23,15 @@ type RpmOstreeUpdater struct {
 	BinaryPath string
 }
 
-func (dr RpmOstreeUpdater) Outdated() (bool, error) {
-	if dr.Config.DryRun {
+func (up RpmOstreeUpdater) Outdated() (bool, error) {
+	if up.Config.DryRun {
 		return false, nil
 	}
 	oneMonthAgo := time.Now().AddDate(0, -1, 0)
 	var timestamp time.Time
 
-	cmd := exec.Command(dr.BinaryPath, "status", "--json", "--booted")
-	out, err := cmd.CombinedOutput()
+	cmd := exec.Command(up.BinaryPath, "status", "--json", "--booted")
+	out, err := session.RunLog(up.Config.logger, slog.LevelDebug, cmd)
 	if err != nil {
 		return false, err
 	}
@@ -43,30 +45,18 @@ func (dr RpmOstreeUpdater) Outdated() (bool, error) {
 	return timestamp.Before(oneMonthAgo), nil
 }
 
-func (dr RpmOstreeUpdater) Update() (*[]CommandOutput, error) {
+func (up RpmOstreeUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 	var cmd *exec.Cmd
-	binaryPath := dr.BinaryPath
+	binaryPath := up.BinaryPath
 	cli := []string{binaryPath, "upgrade"}
-	cmd = exec.Command(cli[0], cli[1:]...)
-	out, err := cmd.CombinedOutput()
+	out, err := session.RunLog(up.Config.logger, slog.LevelDebug, cmd)
 	tmpout := CommandOutput{}.New(out, err)
-	// tmpout.Cli = cli
+	tmpout.Cli = cli
 	tmpout.Failure = err != nil
 	tmpout.Context = "System Update"
 	finalOutput = append(finalOutput, *tmpout)
 	return &finalOutput, err
-}
-
-func (dr RpmOstreeUpdater) UpdateAvailable() (bool, error) {
-	// This function may or may not be accurate, rpm-ostree updgrade --check has issues... https://github.com/coreos/rpm-ostree/issues/1579
-	// Not worried because we will end up removing rpm-ostree from the equation soon
-	cmd := exec.Command(dr.BinaryPath, "upgrade", "--check")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return true, err
-	}
-	return strings.Contains(string(out), "AvailableUpdate"), nil
 }
 
 func (up RpmOstreeUpdater) Steps() int {
@@ -98,7 +88,7 @@ func (up RpmOstreeUpdater) New(config UpdaterInitConfiguration) (RpmOstreeUpdate
 		DryRun:      config.DryRun,
 		Environment: config.Environment,
 	}
-
+	up.Config.logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	if up.Config.DryRun {
 		return up, nil
 	}
@@ -118,5 +108,23 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 		return true, nil
 	}
 
-	return up.UpdateAvailable()
+	// This function may or may not be accurate, rpm-ostree updgrade --check has issues... https://github.com/coreos/rpm-ostree/issues/1579
+	// Not worried because we will end up removing rpm-ostree from the equation soon
+	cmd := exec.Command(up.BinaryPath, "upgrade", "--check")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return true, err
+	}
+
+	updateNecessary := strings.Contains(string(out), "AvailableUpdate")
+	up.Config.logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", updateNecessary))
+	return updateNecessary, nil
+}
+
+func (up *RpmOstreeUpdater) Logger() *slog.Logger {
+	return up.Config.logger
+}
+
+func (up *RpmOstreeUpdater) SetLogger(logger *slog.Logger) {
+	up.Config.logger = logger
 }

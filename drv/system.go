@@ -2,9 +2,12 @@ package drv
 
 import (
 	"encoding/json"
+	"log/slog"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/ublue-os/uupd/pkg/session"
 )
 
 type bootcStatus struct {
@@ -29,9 +32,10 @@ type bootcStatus struct {
 type SystemUpdateDriver interface {
 	Steps() int
 	Outdated() (bool, error)
-	UpdateAvailable() (bool, error)
 	Check() (bool, error)
 	Update() (*[]CommandOutput, error)
+	Logger() *slog.Logger
+	SetLogger(value *slog.Logger)
 }
 
 type SystemUpdater struct {
@@ -39,13 +43,13 @@ type SystemUpdater struct {
 	BinaryPath string
 }
 
-func (dr SystemUpdater) Outdated() (bool, error) {
-	if dr.Config.DryRun {
+func (up SystemUpdater) Outdated() (bool, error) {
+	if up.Config.DryRun {
 		return false, nil
 	}
 	oneMonthAgo := time.Now().AddDate(0, -1, 0)
 	var timestamp time.Time
-	cmd := exec.Command(dr.BinaryPath, "status", "--format=json")
+	cmd := exec.Command(up.BinaryPath, "status", "--format=json")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, err
@@ -62,28 +66,20 @@ func (dr SystemUpdater) Outdated() (bool, error) {
 	return timestamp.Before(oneMonthAgo), nil
 }
 
-func (dr SystemUpdater) Update() (*[]CommandOutput, error) {
+func (up SystemUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 	var cmd *exec.Cmd
-	binaryPath := dr.BinaryPath
-	cli := []string{binaryPath, "upgrade"}
+	binaryPath := up.BinaryPath
+	cli := []string{binaryPath, "upgrade", "--quiet"}
+	up.Config.logger.Debug("Executing update", slog.Any("cli", cli))
 	cmd = exec.Command(cli[0], cli[1:]...)
-	out, err := cmd.CombinedOutput()
+	out, err := session.RunLog(up.Config.logger, slog.LevelDebug, cmd)
 	tmpout := CommandOutput{}.New(out, err)
 	if err != nil {
 		tmpout.SetFailureContext("System update")
 	}
 	finalOutput = append(finalOutput, *tmpout)
 	return &finalOutput, err
-}
-
-func (dr SystemUpdater) UpdateAvailable() (bool, error) {
-	cmd := exec.Command(dr.BinaryPath, "upgrade", "--check")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return true, err
-	}
-	return !strings.Contains(string(out), "No changes in:"), nil
 }
 
 func (up SystemUpdater) Steps() int {
@@ -95,13 +91,13 @@ func (up SystemUpdater) Steps() int {
 
 func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, error) {
 	up.Config = DriverConfiguration{
-		Title:       "Bootc",
+		Title:       "System",
 		Description: "System Image",
 		Enabled:     !config.Ci,
 		DryRun:      config.DryRun,
 		Environment: config.Environment,
 	}
-
+	up.Config.logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	if up.Config.DryRun {
 		return up, nil
 	}
@@ -121,5 +117,20 @@ func (up SystemUpdater) Check() (bool, error) {
 		return true, nil
 	}
 
-	return up.UpdateAvailable()
+	cmd := exec.Command(up.BinaryPath, "upgrade", "--check")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return true, err
+	}
+	updateNecessary := !strings.Contains(string(out), "No changes in:")
+	up.Config.logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", updateNecessary))
+	return updateNecessary, nil
+}
+
+func (up *SystemUpdater) Logger() *slog.Logger {
+	return up.Config.logger
+}
+
+func (up *SystemUpdater) SetLogger(logger *slog.Logger) {
+	up.Config.logger = logger
 }

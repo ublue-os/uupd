@@ -1,7 +1,9 @@
 package drv
 
 import (
+	"log/slog"
 	"os/exec"
+	"strings"
 
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
@@ -37,6 +39,7 @@ func (up FlatpakUpdater) New(config UpdaterInitConfiguration) (FlatpakUpdater, e
 		DryRun:          config.DryRun,
 		Environment:     config.Environment,
 	}
+	up.Config.logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.usersEnabled = false
 	up.Tracker = nil
 
@@ -55,8 +58,8 @@ func (up *FlatpakUpdater) SetUsers(users []session.User) {
 	up.usersEnabled = true
 }
 
-func (up FlatpakUpdater) Check() (*[]CommandOutput, error) {
-	return nil, nil
+func (up FlatpakUpdater) Check() (bool, error) {
+	return true, nil
 }
 
 func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
@@ -75,9 +78,9 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	}
 
 	percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
-	cli := []string{up.binaryPath, "update", "-y"}
+	cli := []string{up.binaryPath, "update", "-y", "--noninteractive"}
 	flatpakCmd := exec.Command(cli[0], cli[1:]...)
-	out, err := flatpakCmd.CombinedOutput()
+	out, err := session.RunLog(up.Config.logger, slog.LevelDebug, flatpakCmd)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = up.Config.Description
 	tmpout.Cli = cli
@@ -90,7 +93,7 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 		context := *up.Config.UserDescription + " " + user.Name
 		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: context})
 		cli := []string{up.binaryPath, "update", "-y"}
-		out, err := session.RunUID(user.UID, cli, nil)
+		out, err := session.RunUID(up.Config.logger, slog.LevelDebug, user.UID, cli, nil)
 		tmpout = CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli
@@ -98,4 +101,12 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 		finalOutput = append(finalOutput, *tmpout)
 	}
 	return &finalOutput, nil
+}
+
+func (up *FlatpakUpdater) Logger() *slog.Logger {
+	return up.Config.logger
+}
+
+func (up *FlatpakUpdater) SetLogger(logger *slog.Logger) {
+	up.Config.logger = logger
 }
