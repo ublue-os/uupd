@@ -1,17 +1,18 @@
-package drv
+package flatpak
 
 import (
 	"log/slog"
 	"os/exec"
 	"strings"
 
+	. "github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
 type FlatpakUpdater struct {
 	Config       DriverConfiguration
-	Tracker      *TrackerConfiguration
+	Tracker      *percent.Incrementer
 	binaryPath   string
 	users        []session.User
 	usersEnabled bool
@@ -39,16 +40,11 @@ func (up FlatpakUpdater) New(config UpdaterInitConfiguration) (FlatpakUpdater, e
 		DryRun:          config.DryRun,
 		Environment:     config.Environment,
 	}
-	up.Config.logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
+	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.usersEnabled = false
 	up.Tracker = nil
 
-	binaryPath, exists := up.Config.Environment["UUPD_FLATPAK_BINARY"]
-	if !exists || binaryPath == "" {
-		up.binaryPath = "/usr/bin/flatpak"
-	} else {
-		up.binaryPath = binaryPath
-	}
+	up.binaryPath = EnvOrFallback(up.Config.Environment, "UUPD_FLATPAK_BINARY", "/usr/bin/flatpak")
 
 	return up, nil
 }
@@ -66,21 +62,21 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 
 	if up.Config.DryRun {
-		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
-		up.Tracker.Tracker.IncrementSection(nil)
+		percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+		up.Tracker.IncrementSection(nil)
 
 		var err error = nil
 		for _, user := range up.users {
-			up.Tracker.Tracker.IncrementSection(err)
-			percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
+			up.Tracker.IncrementSection(err)
+			percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
 		}
 		return &finalOutput, nil
 	}
 
-	percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+	percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
 	cli := []string{up.binaryPath, "update", "-y", "--noninteractive"}
 	flatpakCmd := exec.Command(cli[0], cli[1:]...)
-	out, err := session.RunLog(up.Config.logger, slog.LevelDebug, flatpakCmd)
+	out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, flatpakCmd)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = up.Config.Description
 	tmpout.Cli = cli
@@ -89,11 +85,11 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 
 	err = nil
 	for _, user := range up.users {
-		up.Tracker.Tracker.IncrementSection(err)
+		up.Tracker.IncrementSection(err)
 		context := *up.Config.UserDescription + " " + user.Name
-		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: context})
+		percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: context})
 		cli := []string{up.binaryPath, "update", "-y"}
-		out, err := session.RunUID(up.Config.logger, slog.LevelDebug, user.UID, cli, nil)
+		out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, user.UID, cli, nil)
 		tmpout = CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli
@@ -101,12 +97,4 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 		finalOutput = append(finalOutput, *tmpout)
 	}
 	return &finalOutput, nil
-}
-
-func (up *FlatpakUpdater) Logger() *slog.Logger {
-	return up.Config.logger
-}
-
-func (up *FlatpakUpdater) SetLogger(logger *slog.Logger) {
-	up.Config.logger = logger
 }

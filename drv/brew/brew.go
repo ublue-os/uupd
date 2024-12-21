@@ -1,4 +1,4 @@
-package drv
+package brew
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	. "github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
@@ -45,19 +46,20 @@ func (up BrewUpdater) Update() (*[]CommandOutput, error) {
 	}
 
 	cli := []string{up.BrewPath, "update"}
-	out, err := session.RunUID(up.Config.logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
+	out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Update"
 	tmpout.Cli = cli
 	tmpout.Failure = err != nil
-	if err != nil {
-		tmpout.SetFailureContext("Brew update")
+	if failure := err != nil; failure {
+		tmpout.Failure = failure
+		tmpout.Context = "Brew Update"
 		final_output = append(final_output, *tmpout)
 		return &final_output, err
 	}
 
 	cli = []string{up.BrewPath, "upgrade"}
-	out, err = session.RunUID(up.Config.logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
+	out, err = session.RunUID(up.Config.Logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
 	tmpout = CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Upgrade"
 	tmpout.Cli = cli
@@ -84,32 +86,12 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 		DryRun:      config.DryRun,
 		Environment: config.Environment,
 	}
-	up.Config.logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
+	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 
-	brewPrefix, exists := up.Config.Environment["HOMEBREW_PREFIX"]
-	if !exists || brewPrefix == "" {
-		up.BrewPrefix = "/home/linuxbrew/.linuxbrew"
-	} else {
-		up.BrewPrefix = brewPrefix
-	}
-	brewRepo, exists := up.Config.Environment["HOMEBREW_REPOSITORY"]
-	if !exists || brewRepo == "" {
-		up.BrewRepo = fmt.Sprintf("%s/Homebrew", up.BrewPrefix)
-	} else {
-		up.BrewRepo = brewRepo
-	}
-	brewCellar, exists := up.Config.Environment["HOMEBREW_CELLAR"]
-	if !exists || brewCellar == "" {
-		up.BrewCellar = fmt.Sprintf("%s/Cellar", up.BrewPrefix)
-	} else {
-		up.BrewCellar = brewCellar
-	}
-	brewPath, exists := up.Config.Environment["HOMEBREW_PATH"]
-	if !exists || brewPath == "" {
-		up.BrewPath = fmt.Sprintf("%s/bin/brew", up.BrewPrefix)
-	} else {
-		up.BrewPath = brewPath
-	}
+	up.BrewPrefix = EnvOrFallback(up.Config.Environment, "HOMEBREW_PREFIX", "/home/linuxbrew/.linuxbrew")
+	up.BrewRepo = EnvOrFallback(up.Config.Environment, "HOMEBREW_REPOSITORY", fmt.Sprintf("%s/Homebrew", up.BrewPrefix))
+	up.BrewCellar = EnvOrFallback(up.Config.Environment, "HOMEBREW_CELLAR", fmt.Sprintf("%s/Cellar", up.BrewPrefix))
+	up.BrewPath = EnvOrFallback(up.Config.Environment, "HOMEBREW_PATH", fmt.Sprintf("%s/bin/brew", up.BrewPrefix))
 
 	if up.Config.DryRun {
 		return up, nil
@@ -122,12 +104,4 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 	up.BaseUser = uid
 
 	return up, nil
-}
-
-func (up *BrewUpdater) Logger() *slog.Logger {
-	return up.Config.logger
-}
-
-func (up *BrewUpdater) SetLogger(logger *slog.Logger) {
-	up.Config.logger = logger
 }

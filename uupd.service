@@ -3,4 +3,4 @@ Description=Universal Blue Update Oneshot Service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/uupd -c
+ExecStart=/usr/bin/uupd --log-level debug --json --hw-check

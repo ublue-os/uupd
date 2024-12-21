@@ -9,10 +9,8 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/spf13/cobra"
 	appLogging "github.com/ublue-os/uupd/pkg/logging"
-	"golang.org/x/term"
 )
 
 func assertRoot(cmd *cobra.Command, args []string) {
@@ -118,19 +116,4 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
 	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")
 	rootCmd.PersistentFlags().BoolVar(&fNoLogging, "quiet", false, "Make logs quiet")
-
-	interactiveProgress := true
-	if fLogFile != "-" {
-		interactiveProgress = false
-	}
-	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-	if !isTerminal {
-		interactiveProgress = false
-	}
-	if !text.ANSICodesSupported {
-		interactiveProgress = false
-		text.DisableColors()
-	}
-
-	rootCmd.Flags().BoolP("no-progress", "p", !interactiveProgress, "Do not show progress bars")
 }

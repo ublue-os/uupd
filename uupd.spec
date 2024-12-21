@@ -14,9 +14,9 @@ License:        Apache-2.0
 
 BuildRequires:  golang
 BuildRequires:  systemd-rpm-macros
-Requires:       bootc
-Requires:       distrobox
-Requires:       flatpak
+Recommends:     bootc
+Recommends:     distrobox
+Recommends:     flatpak
 Requires:       libnotify
 Requires:       systemd
 Provides:       %{name} = %{version}
@@ -39,8 +39,7 @@ install -Dpm 644 %{name}.timer %{buildroot}%{_unitdir}/%{name}.timer
 install -Dpm 644 %{name}.rules %{buildroot}%{_sysconfdir}/polkit-1/rules.d/%{name}.rules
 
 %check
-# go test should be here if you have tests, e.g.
-# go test -v ./...
+go test -v ./...
 
 %post
 %systemd_post %{name}.timer
