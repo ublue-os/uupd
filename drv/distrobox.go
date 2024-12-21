@@ -1,6 +1,9 @@
 package drv
 
 import (
+	"log/slog"
+	"strings"
+
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
@@ -35,6 +38,7 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 		DryRun:          config.DryRun,
 		Environment:     config.Environment,
 	}
+	up.Config.logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.usersEnabled = false
 	up.Tracker = nil
 
@@ -53,11 +57,11 @@ func (up *DistroboxUpdater) SetUsers(users []session.User) {
 	up.usersEnabled = true
 }
 
-func (up DistroboxUpdater) Check() (*[]CommandOutput, error) {
-	return nil, nil
+func (up DistroboxUpdater) Check() (bool, error) {
+	return true, nil
 }
 
-func (up *DistroboxUpdater) Update() (*[]CommandOutput, error) {
+func (up DistroboxUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 
 	if up.Config.DryRun {
@@ -74,7 +78,7 @@ func (up *DistroboxUpdater) Update() (*[]CommandOutput, error) {
 
 	percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
 	cli := []string{up.binaryPath, "upgrade", "-a"}
-	out, err := session.RunUID(0, cli, nil)
+	out, err := session.RunUID(up.Config.logger, slog.LevelDebug, 0, cli, nil)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = up.Config.Description
 	tmpout.Cli = cli
@@ -87,7 +91,7 @@ func (up *DistroboxUpdater) Update() (*[]CommandOutput, error) {
 		context := *up.Config.UserDescription + " " + user.Name
 		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
 		cli := []string{up.binaryPath, "upgrade", "-a"}
-		out, err := session.RunUID(user.UID, cli, nil)
+		out, err := session.RunUID(up.Config.logger, slog.LevelDebug, user.UID, cli, nil)
 		tmpout = CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli
@@ -95,4 +99,12 @@ func (up *DistroboxUpdater) Update() (*[]CommandOutput, error) {
 		finalOutput = append(finalOutput, *tmpout)
 	}
 	return &finalOutput, nil
+}
+
+func (up *DistroboxUpdater) Logger() *slog.Logger {
+	return up.Config.logger
+}
+
+func (up *DistroboxUpdater) SetLogger(logger *slog.Logger) {
+	up.Config.logger = logger
 }

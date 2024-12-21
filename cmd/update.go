@@ -76,7 +76,6 @@ func Update(cmd *cobra.Command, args []string) {
 	distroboxUpdater.SetUsers(users)
 
 	var enableUpd bool = true
-	var systemOutdated bool
 
 	rpmOstreeUpdater, err := drv.RpmOstreeUpdater{}.New(*initConfiguration)
 	if err != nil {
@@ -97,12 +96,13 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Debug("Using rpm-ostree fallback as system driver")
 	}
 
-	systemUpdater.Config.Enabled = enableUpd && isBootc
-	rpmOstreeUpdater.Config.Enabled = enableUpd && !isBootc
+	systemUpdater.Config.Enabled = isBootc && enableUpd
+	rpmOstreeUpdater.Config.Enabled = !isBootc && enableUpd
 
-	var mainSystemDriver drv.SystemUpdateDriver = systemUpdater
-	if !systemUpdater.Config.Enabled {
-		mainSystemDriver = rpmOstreeUpdater
+	// The system driver to be applied needs to have the correct "enabled" value since it will NOT update from here onwards.
+	var mainSystemDriver drv.SystemUpdateDriver = &systemUpdater
+	if !isBootc {
+		mainSystemDriver = &rpmOstreeUpdater
 	}
 
 	enableUpd, err = mainSystemDriver.Check()
@@ -110,9 +110,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed checking for updates")
 	}
 
-	if !enableUpd {
-		slog.Debug("No system update found, disabiling module")
-	}
+	slog.Debug("System Updater module status", slog.Bool("enabled", enableUpd))
 
 	totalSteps := brewUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
 	if enableUpd {
@@ -149,7 +147,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	var outputs = []drv.CommandOutput{}
 
-	systemOutdated, err = mainSystemDriver.Outdated()
+	systemOutdated, err := mainSystemDriver.Outdated()
 
 	if err != nil {
 		slog.Error("Failed checking if system is out of date")
@@ -164,7 +162,11 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Warn(OUTDATED_WARNING)
 	}
 
+	// This section is ugly but we cant really do much about it.
+	// Using interfaces doesn't preserve the "Config" struct state and I dont know any other way to make this work without cursed workarounds.
+
 	if enableUpd {
+		slog.Debug(fmt.Sprintf("%s module", systemUpdater.Config.Title), slog.String("module_name", systemUpdater.Config.Title), slog.Any("module_configuration", systemUpdater.Config))
 		percent.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, percent.TrackerMessage{Title: systemUpdater.Config.Title, Description: systemUpdater.Config.Description})
 		var out *[]drv.CommandOutput
 		out, err = mainSystemDriver.Update()
@@ -173,20 +175,28 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	if brewUpdater.Config.Enabled {
+		slog.Debug(fmt.Sprintf("%s module", brewUpdater.Config.Title), slog.String("module_name", brewUpdater.Config.Title), slog.Any("module_configuration", brewUpdater.Config))
 		percent.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, percent.TrackerMessage{Title: brewUpdater.Config.Title, Description: brewUpdater.Config.Description})
-		out, err := brewUpdater.Update()
+		var out *[]drv.CommandOutput
+		out, err = brewUpdater.Update()
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
 
 	if flatpakUpdater.Config.Enabled {
-		out, err := flatpakUpdater.Update()
+		slog.Debug(fmt.Sprintf("%s module", flatpakUpdater.Config.Title), slog.String("module_name", flatpakUpdater.Config.Title), slog.Any("module_configuration", flatpakUpdater.Config))
+		percent.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, percent.TrackerMessage{Title: flatpakUpdater.Config.Title, Description: flatpakUpdater.Config.Description})
+		var out *[]drv.CommandOutput
+		out, err = flatpakUpdater.Update()
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
 
 	if distroboxUpdater.Config.Enabled {
-		out, err := distroboxUpdater.Update()
+		slog.Debug(fmt.Sprintf("%s module", distroboxUpdater.Config.Title), slog.String("module_name", distroboxUpdater.Config.Title), slog.Any("module_configuration", distroboxUpdater.Config))
+		percent.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, percent.TrackerMessage{Title: distroboxUpdater.Config.Title, Description: distroboxUpdater.Config.Description})
+		var out *[]drv.CommandOutput
+		out, err = distroboxUpdater.Update()
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
@@ -199,7 +209,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Info("Verbose run requested")
 
 		for _, output := range outputs {
-			slog.Info(output.Context, slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr), slog.Any("cli", output.Cli))
+			slog.Info(output.Context, slog.Any("output", output))
 		}
 
 		return
@@ -216,7 +226,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Warn("Exited with failed updates.")
 
 		for _, output := range failures {
-			slog.Info(output.Context, slog.String("stdout", output.Stdout), slog.Any("stderr", output.Stderr), slog.Any("cli", output.Cli))
+			slog.Info(output.Context, slog.Any("output", output))
 		}
 
 		return
