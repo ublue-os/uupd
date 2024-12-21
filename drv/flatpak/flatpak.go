@@ -12,7 +12,7 @@ import (
 
 type FlatpakUpdater struct {
 	Config       DriverConfiguration
-	Tracker      *TrackerConfiguration
+	Tracker      *percent.Incrementer
 	binaryPath   string
 	users        []session.User
 	usersEnabled bool
@@ -62,18 +62,18 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 
 	if up.Config.DryRun {
-		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
-		up.Tracker.Tracker.IncrementSection(nil)
+		percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+		up.Tracker.IncrementSection(nil)
 
 		var err error = nil
 		for _, user := range up.users {
-			up.Tracker.Tracker.IncrementSection(err)
-			percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
+			up.Tracker.IncrementSection(err)
+			percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
 		}
 		return &finalOutput, nil
 	}
 
-	percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+	percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
 	cli := []string{up.binaryPath, "update", "-y", "--noninteractive"}
 	flatpakCmd := exec.Command(cli[0], cli[1:]...)
 	out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, flatpakCmd)
@@ -85,9 +85,9 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 
 	err = nil
 	for _, user := range up.users {
-		up.Tracker.Tracker.IncrementSection(err)
+		up.Tracker.IncrementSection(err)
 		context := *up.Config.UserDescription + " " + user.Name
-		percent.ChangeTrackerMessageFancy(*up.Tracker.Writer, up.Tracker.Tracker, up.Tracker.Progress, percent.TrackerMessage{Title: up.Config.Title, Description: context})
+		percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: context})
 		cli := []string{up.binaryPath, "update", "-y"}
 		out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, user.UID, cli, nil)
 		tmpout = CommandOutput{}.New(out, err)

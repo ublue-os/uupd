@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
 	"github.com/ublue-os/uupd/drv/brew"
@@ -98,34 +97,15 @@ func Update(cmd *cobra.Command, args []string) {
 	if mainSystemDriverConfig.Enabled {
 		totalSteps += mainSystemDriver.Steps()
 	}
-	pw := percent.NewProgressWriter()
-	pw.SetNumTrackersExpected(1)
-	pw.SetAutoStop(false)
 
-	progressEnabled, err := cmd.Flags().GetBool("no-progress")
-	if err != nil {
-		slog.Error("Failed to get no-progress flag", "error", err)
-		return
-	}
-	// Move this to its actual boolean value (~no-progress)
-	progressEnabled = !progressEnabled
-
-	if progressEnabled {
-		go pw.Render()
-		percent.ResetOscProgress()
-	}
+	// FIXME: check if is interactive
+	percent.ResetOscProgress()
 
 	// -1 because 0 index
-	tracker := percent.NewIncrementTracker(&progress.Tracker{Message: "Updating", Units: progress.UnitsDefault, Total: int64(totalSteps - 1)}, totalSteps-1)
-	pw.AppendTracker(tracker.Tracker)
+	tracker := &percent.Incrementer{MaxIncrements: totalSteps - 1}
 
-	var trackerConfig = &drv.TrackerConfiguration{
-		Tracker:  tracker,
-		Writer:   &pw,
-		Progress: progressEnabled,
-	}
-	flatpakUpdater.Tracker = trackerConfig
-	distroboxUpdater.Tracker = trackerConfig
+	flatpakUpdater.Tracker = tracker
+	distroboxUpdater.Tracker = tracker
 
 	var outputs = []drv.CommandOutput{}
 
@@ -149,7 +129,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if mainSystemDriverConfig.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
-		percent.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, percent.TrackerMessage{Title: mainSystemDriverConfig.Title, Description: mainSystemDriverConfig.Description})
+		percent.ReportStatusChange(tracker, percent.TrackerMessage{Title: mainSystemDriverConfig.Title, Description: mainSystemDriverConfig.Description})
 		var out *[]drv.CommandOutput
 		out, err = mainSystemDriver.Update()
 		outputs = append(outputs, *out...)
@@ -158,7 +138,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if brewUpdater.Config.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", brewUpdater.Config.Title), slog.String("module_name", brewUpdater.Config.Title), slog.Any("module_configuration", brewUpdater.Config))
-		percent.ChangeTrackerMessageFancy(pw, tracker, progressEnabled, percent.TrackerMessage{Title: brewUpdater.Config.Title, Description: brewUpdater.Config.Description})
+		percent.ReportStatusChange(tracker, percent.TrackerMessage{Title: brewUpdater.Config.Title, Description: brewUpdater.Config.Description})
 		var out *[]drv.CommandOutput
 		out, err = brewUpdater.Update()
 		outputs = append(outputs, *out...)
@@ -181,10 +161,8 @@ func Update(cmd *cobra.Command, args []string) {
 		tracker.IncrementSection(err)
 	}
 
-	if progressEnabled {
-		pw.Stop()
-		percent.ResetOscProgress()
-	}
+	// FIXME: detect interactive session
+	percent.ResetOscProgress()
 	if verboseRun {
 		slog.Info("Verbose run requested")
 

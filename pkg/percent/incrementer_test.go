@@ -4,20 +4,11 @@ import (
 	"math"
 	"testing"
 
-	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/ublue-os/uupd/pkg/percent"
 )
 
-func InitIncrementer(max int) percent.IncrementTracker {
-	tracker := progress.Tracker{Message: "Updating", Units: progress.UnitsDefault, Total: int64(max)}
-	incrementer := percent.Incrementer{
-		MaxIncrements:  max,
-		DoneIncrements: 0,
-	}
-	return percent.IncrementTracker{
-		Tracker:     &tracker,
-		Incrementer: &incrementer,
-	}
+func InitIncrementer(max int) percent.Incrementer {
+	return percent.Incrementer{MaxIncrements: max}
 }
 
 func TestOverflow(t *testing.T) {

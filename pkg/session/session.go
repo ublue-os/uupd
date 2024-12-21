@@ -26,17 +26,18 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 	stdout, _ := command.StdoutPipe()
 	stderr, _ := command.StderrPipe()
 	multiReader := io.MultiReader(stdout, stderr)
+	actuallogger := slog.Default()
 
-	if err := command.Wait(); err != nil {
-		logger.Warn("Error occoured starting external command", slog.Any("error", err))
+	if err := command.Start(); err != nil {
+		actuallogger.Warn("Error occoured starting external command", slog.Any("error", err))
 	}
 	scanner := bufio.NewScanner(multiReader)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
-		logger.With(slog.Bool("subcommand", true)).Log(context.TODO(), level, scanner.Text())
+		actuallogger.Log(context.TODO(), level, scanner.Text())
 	}
 	if err := command.Wait(); err != nil {
-		logger.Warn("Error occoured while waiting for external command", slog.Any("error", err))
+		actuallogger.Warn("Error occoured while waiting for external command", slog.Any("error", err))
 	}
 
 	return scanner.Bytes(), scanner.Err()
