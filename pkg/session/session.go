@@ -46,15 +46,14 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 func RunUID(logger *slog.Logger, level slog.Level, uid int, command []string, env map[string]string) ([]byte, error) {
 	// Just fork systemd-run, we don't need to rewrite systemd-run with dbus
 	cmdArgs := []string{
-		"/usr/bin/systemd-run",
-		"--machine",
-		fmt.Sprintf("%d@", uid),
-		"--pipe",
+		"/usr/bin/machinectl",
+		"shell",
 		"--quiet",
+		fmt.Sprintf("%d@", uid),
 	}
-	if uid != 0 {
-		cmdArgs = append(cmdArgs, "--user")
-	}
+	// if uid != 0 {
+	// 	cmdArgs = append(cmdArgs, "--user")
+	// }
 	cmdArgs = append(cmdArgs, command...)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
