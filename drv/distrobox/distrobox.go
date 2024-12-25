@@ -46,6 +46,10 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 
 	up.binaryPath = EnvOrFallback(up.Config.Environment, "UUPD_DISTROBOX_BINARY", "/usr/bin/distrobox")
 
+	if up.Config.DryRun {
+		return up, nil
+	}
+
 	inf, err := os.Stat(up.binaryPath)
 	if err != nil {
 		up.Config.Enabled = false
