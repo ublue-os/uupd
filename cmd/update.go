@@ -98,8 +98,10 @@ func Update(cmd *cobra.Command, args []string) {
 		totalSteps += mainSystemDriver.Steps()
 	}
 
-	// FIXME: check if is interactive
-	percent.ResetOscProgress()
+	disableOsc, err := cmd.Flags().GetBool("disable-osc-progress")
+	if !disableOsc {
+		percent.ResetOscProgress()
+	}
 
 	// -1 because 0 index
 	tracker := &percent.Incrementer{MaxIncrements: totalSteps - 1}
@@ -161,8 +163,9 @@ func Update(cmd *cobra.Command, args []string) {
 		tracker.IncrementSection(err)
 	}
 
-	// FIXME: detect interactive session
-	percent.ResetOscProgress()
+	if !disableOsc {
+		percent.ResetOscProgress()
+	}
 	if verboseRun {
 		slog.Info("Verbose run requested")
 
