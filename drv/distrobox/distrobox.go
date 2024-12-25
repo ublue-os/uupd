@@ -52,7 +52,6 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 
 	inf, err := os.Stat(up.binaryPath)
 	if err != nil {
-		up.Config.Enabled = false
 		return up, err
 	}
 	// check if file is executable using bitmask
