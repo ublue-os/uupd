@@ -99,6 +99,7 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 
 	uid, err := up.GetBrewUID()
 	if err != nil {
+		up.Config.Enabled = false
 		return up, err
 	}
 	up.BaseUser = uid

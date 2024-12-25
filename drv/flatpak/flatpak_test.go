@@ -12,7 +12,7 @@ import (
 
 func InitBaseConfig() flatpak.FlatpakUpdater {
 	var initConfiguration = generic.UpdaterInitConfiguration{
-		DryRun:      false,
+		DryRun:      true,
 		Ci:          false,
 		Verbose:     false,
 		Environment: nil,
