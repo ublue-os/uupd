@@ -2,6 +2,7 @@ package distrobox
 
 import (
 	"log/slog"
+	"os"
 	"strings"
 
 	. "github.com/ublue-os/uupd/drv/generic"
@@ -44,6 +45,14 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 	up.Tracker = nil
 
 	up.binaryPath = EnvOrFallback(up.Config.Environment, "UUPD_DISTROBOX_BINARY", "/usr/bin/distrobox")
+
+	inf, err := os.Stat(up.binaryPath)
+	if err != nil {
+		up.Config.Enabled = false
+		return up, err
+	}
+	// check if file is executable using bitmask
+	up.Config.Enabled = inf.Mode()&0111 != 0
 
 	return up, nil
 }
