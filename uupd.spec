@@ -1,7 +1,5 @@
-%define uupd_version %(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo unknown)
-
 Name:           uupd
-Version:        %{uupd_version}
+Version:        0.5.1
 Release:        1%{?dist}
 Summary:       Centralized update service/checker made for Universal Blue
 Vendor:        ublue-os
