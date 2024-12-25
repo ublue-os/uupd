@@ -50,6 +50,11 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed to get verbose flag", "error", err)
 		return
 	}
+	disableOsc, err := cmd.Flags().GetBool("disable-osc-progress")
+	if err != nil {
+		slog.Error("Failed to get disable-osc-progress flag", "error", err)
+		return
+	}
 
 	if hwCheck {
 		err := checks.RunHwChecks()
@@ -98,7 +103,6 @@ func Update(cmd *cobra.Command, args []string) {
 		totalSteps += mainSystemDriver.Steps()
 	}
 
-	disableOsc, err := cmd.Flags().GetBool("disable-osc-progress")
 	if !disableOsc {
 		percent.ResetOscProgress()
 	}
