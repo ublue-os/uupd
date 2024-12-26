@@ -117,7 +117,7 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	// -1 because 0 index
-	tracker := &percent.Incrementer{MaxIncrements: totalSteps - 1}
+	tracker := &percent.Incrementer{MaxIncrements: totalSteps - 1, OscEnabled: !disableOsc}
 
 	flatpakUpdater.Tracker = tracker
 	distroboxUpdater.Tracker = tracker
@@ -144,7 +144,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if mainSystemDriverConfig.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
-		percent.ReportStatusChange(tracker, percent.TrackerMessage{Title: mainSystemDriverConfig.Title, Description: mainSystemDriverConfig.Description})
+		tracker.ReportStatusChange(mainSystemDriverConfig.Title, mainSystemDriverConfig.Description)
 		var out *[]drv.CommandOutput
 		out, err = mainSystemDriver.Update()
 		outputs = append(outputs, *out...)
@@ -153,7 +153,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if brewUpdater.Config.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", brewUpdater.Config.Title), slog.String("module_name", brewUpdater.Config.Title), slog.Any("module_configuration", brewUpdater.Config))
-		percent.ReportStatusChange(tracker, percent.TrackerMessage{Title: brewUpdater.Config.Title, Description: brewUpdater.Config.Description})
+		tracker.ReportStatusChange(brewUpdater.Config.Title, brewUpdater.Config.Description)
 		var out *[]drv.CommandOutput
 		out, err = brewUpdater.Update()
 		outputs = append(outputs, *out...)

@@ -3,6 +3,7 @@ package percent
 type Incrementer struct {
 	DoneIncrements int
 	MaxIncrements  int
+	OscEnabled     bool
 }
 
 func (it *Incrementer) IncrementSection(err error) {
