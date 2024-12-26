@@ -1,18 +1,20 @@
 package percent
 
 import (
+	"fmt"
 	"log/slog"
+	"math"
 )
 
-type TrackerMessage struct {
-	Title       string
-	Description string
-}
+func (tracker Incrementer) ReportStatusChange(title string, description string) {
+	if tracker.OscEnabled {
+		percentage := math.Round((float64(tracker.CurrentStep()) / float64(tracker.MaxIncrements)) * 100)
+		fmt.Printf("\033]9;4;1;%d\a", int(percentage))
+	}
 
-func ReportStatusChange(tracker *Incrementer, message TrackerMessage) {
 	slog.Info("Updating",
-		slog.String("title", message.Title),
-		slog.String("description", message.Description),
+		slog.String("title", title),
+		slog.String("description", description),
 		slog.Int("progress", tracker.CurrentStep()),
 		slog.Int("total", tracker.MaxIncrements),
 	)

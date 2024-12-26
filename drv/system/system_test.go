@@ -10,7 +10,7 @@ import (
 
 func InitBaseConfig() system.SystemUpdater {
 	var initConfiguration = generic.UpdaterInitConfiguration{
-		DryRun:      false,
+		DryRun:      true,
 		Ci:          false,
 		Verbose:     false,
 		Environment: nil,

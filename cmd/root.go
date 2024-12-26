@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	appLogging "github.com/ublue-os/uupd/pkg/logging"
+	"golang.org/x/term"
 )
 
 func assertRoot(cmd *cobra.Command, args []string) {
@@ -111,7 +112,8 @@ func init() {
 	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run")
 	rootCmd.Flags().BoolP("verbose", "v", false, "Display command outputs after run")
 	rootCmd.Flags().Bool("ci", false, "Makes some modifications to behavior if is running in CI")
-
+	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+	rootCmd.Flags().Bool("disable-osc-progress", !isTerminal, "Disable the GUI progress indicator")
 	rootCmd.PersistentFlags().BoolVar(&fLogJson, "json", false, "Print logs as json (used for testing)")
 	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
 	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")

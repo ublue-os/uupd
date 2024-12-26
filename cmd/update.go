@@ -50,6 +50,11 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed to get verbose flag", "error", err)
 		return
 	}
+	disableOsc, err := cmd.Flags().GetBool("disable-osc-progress")
+	if err != nil {
+		slog.Error("Failed to get disable-osc-progress flag", "error", err)
+		return
+	}
 
 	if hwCheck {
 		err := checks.RunHwChecks()
@@ -73,14 +78,23 @@ func Update(cmd *cobra.Command, args []string) {
 	initConfiguration.Verbose = verboseRun
 
 	brewUpdater, err := brew.BrewUpdater{}.New(*initConfiguration)
-	brewUpdater.Config.Enabled = err == nil
+	if err != nil {
+		brewUpdater.Config.Enabled = false
+		slog.Debug("Brew driver failed to initialize", slog.Any("error", err))
+	}
 
 	flatpakUpdater, err := flatpak.FlatpakUpdater{}.New(*initConfiguration)
-	flatpakUpdater.Config.Enabled = err == nil
+	if err != nil {
+		flatpakUpdater.Config.Enabled = false
+		slog.Debug("Flatpak driver failed to initialize", slog.Any("error", err))
+	}
 	flatpakUpdater.SetUsers(users)
 
 	distroboxUpdater, err := distrobox.DistroboxUpdater{}.New(*initConfiguration)
-	distroboxUpdater.Config.Enabled = err == nil
+	if err != nil {
+		distroboxUpdater.Config.Enabled = false
+		slog.Debug("Distrobox driver failed to initialize", slog.Any("error", err))
+	}
 	distroboxUpdater.SetUsers(users)
 
 	mainSystemDriver, mainSystemDriverConfig, _, _ := system.InitializeSystemDriver(*initConfiguration)
@@ -98,11 +112,12 @@ func Update(cmd *cobra.Command, args []string) {
 		totalSteps += mainSystemDriver.Steps()
 	}
 
-	// FIXME: check if is interactive
-	percent.ResetOscProgress()
+	if !disableOsc {
+		percent.ResetOscProgress()
+	}
 
 	// -1 because 0 index
-	tracker := &percent.Incrementer{MaxIncrements: totalSteps - 1}
+	tracker := &percent.Incrementer{MaxIncrements: totalSteps - 1, OscEnabled: !disableOsc}
 
 	flatpakUpdater.Tracker = tracker
 	distroboxUpdater.Tracker = tracker
@@ -129,7 +144,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if mainSystemDriverConfig.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
-		percent.ReportStatusChange(tracker, percent.TrackerMessage{Title: mainSystemDriverConfig.Title, Description: mainSystemDriverConfig.Description})
+		tracker.ReportStatusChange(mainSystemDriverConfig.Title, mainSystemDriverConfig.Description)
 		var out *[]drv.CommandOutput
 		out, err = mainSystemDriver.Update()
 		outputs = append(outputs, *out...)
@@ -138,7 +153,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if brewUpdater.Config.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", brewUpdater.Config.Title), slog.String("module_name", brewUpdater.Config.Title), slog.Any("module_configuration", brewUpdater.Config))
-		percent.ReportStatusChange(tracker, percent.TrackerMessage{Title: brewUpdater.Config.Title, Description: brewUpdater.Config.Description})
+		tracker.ReportStatusChange(brewUpdater.Config.Title, brewUpdater.Config.Description)
 		var out *[]drv.CommandOutput
 		out, err = brewUpdater.Update()
 		outputs = append(outputs, *out...)
@@ -161,8 +176,9 @@ func Update(cmd *cobra.Command, args []string) {
 		tracker.IncrementSection(err)
 	}
 
-	// FIXME: detect interactive session
-	percent.ResetOscProgress()
+	if !disableOsc {
+		percent.ResetOscProgress()
+	}
 	if verboseRun {
 		slog.Info("Verbose run requested")
 

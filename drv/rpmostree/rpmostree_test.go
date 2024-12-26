@@ -10,7 +10,7 @@ import (
 
 func InitBaseConfig() rpmostree.RpmOstreeUpdater {
 	var initConfiguration = generic.UpdaterInitConfiguration{
-		DryRun:      false,
+		DryRun:      true,
 		Ci:          false,
 		Verbose:     false,
 		Environment: nil,

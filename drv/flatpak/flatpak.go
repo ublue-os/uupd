@@ -62,18 +62,18 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 
 	if up.Config.DryRun {
-		percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+		up.Tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
 		up.Tracker.IncrementSection(nil)
 
 		var err error = nil
 		for _, user := range up.users {
 			up.Tracker.IncrementSection(err)
-			percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: *up.Config.UserDescription + " " + user.Name})
+			up.Tracker.ReportStatusChange(up.Config.Title, *up.Config.UserDescription+" "+user.Name)
 		}
 		return &finalOutput, nil
 	}
 
-	percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: up.Config.Description})
+	up.Tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
 	cli := []string{up.binaryPath, "update", "-y", "--noninteractive"}
 	flatpakCmd := exec.Command(cli[0], cli[1:]...)
 	out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, flatpakCmd)
@@ -87,7 +87,7 @@ func (up FlatpakUpdater) Update() (*[]CommandOutput, error) {
 	for _, user := range up.users {
 		up.Tracker.IncrementSection(err)
 		context := *up.Config.UserDescription + " " + user.Name
-		percent.ReportStatusChange(up.Tracker, percent.TrackerMessage{Title: up.Config.Title, Description: context})
+		up.Tracker.ReportStatusChange(up.Config.Title, context)
 		cli := []string{up.binaryPath, "update", "-y"}
 		out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, user.UID, cli, nil)
 		tmpout = CommandOutput{}.New(out, err)
