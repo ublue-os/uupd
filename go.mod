@@ -4,7 +4,7 @@ go 1.22.9
 
 require (
 	github.com/godbus/dbus/v5 v5.1.0
-	github.com/shirou/gopsutil/v4 v4.24.10
+	github.com/shirou/gopsutil/v4 v4.24.12
 	github.com/spf13/cobra v1.8.1
 	golang.org/x/term v0.27.0
 	gopkg.in/yaml.v3 v3.0.1
