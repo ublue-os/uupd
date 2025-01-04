@@ -6,11 +6,16 @@ Includes systemd timers and services for auto update
 
 # Installation
 
-This will be in the [ublue-os/staging COPR](https://copr.fedorainfracloud.org/coprs/ublue-os/staging/), until then you can install from Containerfile:
-```dockerfile
-  COPY --from=ghcr.io/ublue-os/uupd:{FEDORA_MAJOR_VERSION} /rpms /tmp/rpms 
-  # You can use dnf5 to install packages on the image instead 
-  RUN rpm-ostree install /tmp/rpms/*.rpm
+This program is now in the [ublue-os/staging COPR](https://copr.fedorainfracloud.org/coprs/ublue-os/staging/)
+
+You can install it on Fedora by running:
+
+> **Note**
+> `dnf` can be substituted for `rpm-ostree` or `dnf5`. The [dnf COPR plugin](https://dnf-plugins-core.readthedocs.io/en/latest/copr.html) must also be installed for the `dnf copr` command.
+
+```
+$ sudo dnf copr enable ublue-os/staging
+$ sudo dnf install uupd
 ```
 
 > **Note**
