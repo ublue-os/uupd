@@ -93,9 +93,14 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 
 	// This function may or may not be accurate, rpm-ostree updgrade --check has issues... https://github.com/coreos/rpm-ostree/issues/1579
 	// Not worried because we will end up removing rpm-ostree from the equation soon
-	cmd := exec.Command(up.BinaryPath, "upgrade", "--check")
+	cmd := exec.Command(up.BinaryPath, "upgrade", "--check", "--unchanged-exit-77")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		if cmd.ProcessState.ExitCode() == 77 {
+			// Exit code 77 indicates no update is available
+			up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", false))
+			return false, nil
+		}
 		return true, err
 	}
 
