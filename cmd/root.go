@@ -114,6 +114,7 @@ func init() {
 	rootCmd.Flags().Bool("ci", false, "Makes some modifications to behavior if is running in CI")
 	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 	rootCmd.Flags().Bool("disable-osc-progress", !isTerminal, "Disable the GUI progress indicator")
+	rootCmd.Flags().Bool("apply", false, "Reboot if there's an update to the image")
 	rootCmd.PersistentFlags().BoolVar(&fLogJson, "json", false, "Print logs as json (used for testing)")
 	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
 	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")

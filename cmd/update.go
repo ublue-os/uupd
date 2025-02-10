@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
@@ -53,6 +54,11 @@ func Update(cmd *cobra.Command, args []string) {
 	disableOsc, err := cmd.Flags().GetBool("disable-osc-progress")
 	if err != nil {
 		slog.Error("Failed to get disable-osc-progress flag", "error", err)
+		return
+	}
+	applySystem, err := cmd.Flags().GetBool("apply")
+	if err != nil {
+		slog.Error("Failed to get apply flag", "error", err)
 		return
 	}
 
@@ -207,4 +213,9 @@ func Update(cmd *cobra.Command, args []string) {
 	}
 
 	slog.Info("Updates Completed Successfully")
+	if applySystem && mainSystemDriverConfig.Enabled {
+		slog.Info("Applying System Update")
+		cmd := exec.Command("/usr/bin/systemctl", "reboot")
+		cmd.Start()
+	}
 }
