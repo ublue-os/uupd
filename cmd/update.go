@@ -216,6 +216,9 @@ func Update(cmd *cobra.Command, args []string) {
 	if applySystem && mainSystemDriverConfig.Enabled {
 		slog.Info("Applying System Update")
 		cmd := exec.Command("/usr/bin/systemctl", "reboot")
-		cmd.Start()
+		err := cmd.Run()
+		if err != nil {
+			slog.Error("Failed rebooting machine for updates", slog.Any("error", err))
+		}
 	}
 }
