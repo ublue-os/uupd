@@ -5,6 +5,7 @@ package rpmostree
 
 import (
 	"encoding/json"
+	"log"
 	"log/slog"
 	"os/exec"
 	"strings"
@@ -25,11 +26,6 @@ type RpmOstreeUpdater struct {
 	BinaryPath string
 }
 
-// Checks if it is at least a month old considering how that works
-func IsOutdatedOneMonthTimestamp(current time.Time, target time.Time) bool {
-	return target.Before(current.AddDate(0, -1, 0))
-}
-
 func (up RpmOstreeUpdater) Outdated() (bool, error) {
 	if up.Config.DryRun {
 		return false, nil
@@ -37,18 +33,21 @@ func (up RpmOstreeUpdater) Outdated() (bool, error) {
 	var timestamp time.Time
 
 	cmd := exec.Command(up.BinaryPath, "status", "--json", "--booted")
-	out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, cmd)
+	// out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, cmd)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, err
 	}
 	var status rpmOstreeStatus
 	err = json.Unmarshal(out, &status)
 	if err != nil {
+		log.Printf("Skibidi %v", err)
 		return false, err
 	}
 	timestamp = time.Unix(status.Deployments[0].Timestamp, 0).UTC()
+	oneMonthAgo := time.Now().AddDate(0, -1, 0).UTC()
 
-	return IsOutdatedOneMonthTimestamp(time.Now(), timestamp), nil
+	return timestamp.UTC().Before(oneMonthAgo), nil
 }
 
 func (up RpmOstreeUpdater) Update() (*[]CommandOutput, error) {
