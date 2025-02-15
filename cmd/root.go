@@ -109,6 +109,7 @@ func init() {
 	rootCmd.AddCommand(hardwareCheckCmd)
 	rootCmd.AddCommand(imageOutdatedCmd)
 	rootCmd.Flags().BoolP("hw-check", "c", false, "Run hardware check before running updates")
+	rootCmd.Flags().BoolP("force", "f", false, "Force system update without update checks")
 	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run")
 	rootCmd.Flags().BoolP("verbose", "v", false, "Display command outputs after run")
 	rootCmd.Flags().Bool("ci", false, "Makes some modifications to behavior if is running in CI")

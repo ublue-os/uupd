@@ -61,6 +61,11 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed to get apply flag", "error", err)
 		return
 	}
+	force, err := cmd.Flags().GetBool("force")
+	if err != nil {
+		slog.Error("Failed to get force flag", "error", err)
+		return
+	}
 
 	if hwCheck {
 		err := checks.RunHwChecks()
@@ -105,7 +110,11 @@ func Update(cmd *cobra.Command, args []string) {
 
 	mainSystemDriver, mainSystemDriverConfig, _, _ := system.InitializeSystemDriver(*initConfiguration)
 
-	enableUpd, err := mainSystemDriver.Check()
+	enableUpd, err := false, nil
+	// if there's no force flag, check for updates
+	if !force {
+		enableUpd, err = mainSystemDriver.Check()
+	}
 	if err != nil {
 		slog.Error("Failed checking for updates")
 	}

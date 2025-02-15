@@ -5,7 +5,7 @@ package rpmostree
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"log/slog"
 	"os/exec"
 	"strings"
@@ -17,13 +17,20 @@ import (
 
 type rpmOstreeStatus struct {
 	Deployments []struct {
-		Timestamp int64 `json:"timestamp"`
+		Timestamp int64  `json:"timestamp"`
+		Digest    string `json:"ostree.manifest-digest"`
+		Reference string `json:"container-image-reference"`
 	} `json:"deployments"`
+}
+
+type skopeoInspect struct {
+	Digest string `json:"Digest"`
 }
 
 type RpmOstreeUpdater struct {
 	Config     DriverConfiguration
 	BinaryPath string
+	SkopeoPath string
 }
 
 func (up RpmOstreeUpdater) Outdated() (bool, error) {
@@ -33,7 +40,6 @@ func (up RpmOstreeUpdater) Outdated() (bool, error) {
 	var timestamp time.Time
 
 	cmd := exec.Command(up.BinaryPath, "status", "--json", "--booted")
-	// out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, err
@@ -41,7 +47,6 @@ func (up RpmOstreeUpdater) Outdated() (bool, error) {
 	var status rpmOstreeStatus
 	err = json.Unmarshal(out, &status)
 	if err != nil {
-		log.Printf("Skibidi %v", err)
 		return false, err
 	}
 	timestamp = time.Unix(status.Deployments[0].Timestamp, 0).UTC()
@@ -81,6 +86,7 @@ func (up RpmOstreeUpdater) New(config UpdaterInitConfiguration) (RpmOstreeUpdate
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.BinaryPath = EnvOrFallback(up.Config.Environment, "UUPD_RPMOSTREE_BINARY", "/usr/bin/rpm-ostree")
+	up.SkopeoPath = EnvOrFallback(up.Config.Environment, "UUPD_SKOPEO_BINARY", "/usr/bin/skopeo")
 
 	return up, nil
 }
@@ -90,20 +96,45 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 		return true, nil
 	}
 
-	// This function may or may not be accurate, rpm-ostree updgrade --check has issues... https://github.com/coreos/rpm-ostree/issues/1579
-	// Not worried because we will end up removing rpm-ostree from the equation soon
-	cmd := exec.Command(up.BinaryPath, "upgrade", "--check", "--unchanged-exit-77")
+	cmd := exec.Command(up.BinaryPath, "status", "--json", "--booted")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		if cmd.ProcessState.ExitCode() == 77 {
-			// Exit code 77 indicates no update is available
-			up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", false))
-			return false, nil
-		}
-		return true, err
+		return true, fmt.Errorf("rpm-ostree exited with error: %v", err)
+	}
+	var status rpmOstreeStatus
+	err = json.Unmarshal(out, &status)
+	if err != nil {
+		return true, fmt.Errorf("unable to unmarshal rpm-ostree status: %v", err)
 	}
 
-	updateNecessary := strings.Contains(string(out), "AvailableUpdate")
+	ref, err := expandReference(status.Deployments[0].Reference)
+	if err != nil {
+		return true, fmt.Errorf("couldn't expand container reference: %v", err)
+	}
+	cmd = exec.Command(up.SkopeoPath, "inspect", ref)
+	out, err = cmd.CombinedOutput()
+	var inspect skopeoInspect
+	err = json.Unmarshal(out, &inspect)
+	if err != nil {
+		return true, fmt.Errorf("Couldn't unmarshal skopeo inspect: %v", err)
+	}
+
+	updateNecessary := inspect.Digest != status.Deployments[0].Digest
 	up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", updateNecessary))
 	return updateNecessary, nil
+}
+
+func expandReference(s string) (string, error) {
+	// ref := strings.SplitN(s, ":", 2)
+	_, url, found := strings.Cut(s, ":")
+	if !found {
+		return "", fmt.Errorf("Cannot expand reference: Malformed container reference: %s", s)
+	}
+	protocol := "docker://"
+	// if the url doesn't have to the protocol (implicit)
+	if !strings.Contains(url, protocol) {
+		url = protocol + url
+	}
+
+	return url, nil
 }
