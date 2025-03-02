@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -45,6 +46,17 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 }
 
 func RunUID(logger *slog.Logger, level slog.Level, uid int, command []string, env map[string]string) ([]byte, error) {
+	// make a file to store the exit code (machinectl shell doesn't pass through the exit code)
+	exitCodeFile, err := os.CreateTemp("/tmp", "exitcode_")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temporary exit code file: %v", err)
+	}
+	// err = os.Chmod(exitCodeFile.Name(), 0666) // Allow anyone to read and write
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to set permissions on exit code file: %v", err)
+	// }
+	defer os.Remove(exitCodeFile.Name())
+
 	cmdArgs := []string{
 		"/usr/bin/machinectl",
 		"shell",
@@ -53,11 +65,27 @@ func RunUID(logger *slog.Logger, level slog.Level, uid int, command []string, en
 		"/bin/bash",
 		"-c",
 	}
-	cmdArgs = append(cmdArgs, strings.Join(command, " "))
+
+	commandWithExitCodeCapture := fmt.Sprintf(
+		"%s; echo $? > %s",
+		strings.Join(command, " "),
+		exitCodeFile.Name(),
+	)
+
+	cmdArgs = append(cmdArgs, commandWithExitCodeCapture)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 
-	return RunLog(logger, level, cmd)
+	output, err := cmd.CombinedOutput()
+
+	exitCodeData, _ := os.ReadFile(exitCodeFile.Name())
+	exitCode := string(exitCodeData)
+
+	if exitCode != "0" {
+		return output, fmt.Errorf("command failed with exit code %s", exitCode)
+	}
+
+	return output, nil
 }
 
 func ParseUserFromVariant(uidVariant dbus.Variant, nameVariant dbus.Variant) (User, error) {
