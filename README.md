@@ -6,7 +6,7 @@ Includes systemd timers and services for auto update
 
 # Installation
 
-This program is now in the [ublue-os/staging COPR](https://copr.fedorainfracloud.org/coprs/ublue-os/staging/)
+This program is now in the [ublue-os/packages COPR](https://copr.fedorainfracloud.org/coprs/ublue-os/packages/)
 
 You can install it on Fedora by running:
 
@@ -14,7 +14,7 @@ You can install it on Fedora by running:
 > `dnf` can be substituted for `rpm-ostree` or `dnf5`. The [dnf COPR plugin](https://dnf-plugins-core.readthedocs.io/en/latest/copr.html) must also be installed for the `dnf copr` command.
 
 ```
-$ sudo dnf copr enable ublue-os/staging
+$ sudo dnf copr enable ublue-os/packages
 $ sudo dnf install uupd
 ```
 
