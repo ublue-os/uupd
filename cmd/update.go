@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
@@ -55,6 +57,16 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed to get disable-osc-progress flag", "error", err)
 		return
 	}
+	applySystem, err := cmd.Flags().GetBool("apply")
+	if err != nil {
+		slog.Error("Failed to get apply flag", "error", err)
+		return
+	}
+	force, err := cmd.Flags().GetBool("force")
+	if err != nil {
+		slog.Error("Failed to get force flag", "error", err)
+		return
+	}
 
 	if hwCheck {
 		err := checks.RunHwChecks()
@@ -99,7 +111,11 @@ func Update(cmd *cobra.Command, args []string) {
 
 	mainSystemDriver, mainSystemDriverConfig, _, _ := system.InitializeSystemDriver(*initConfiguration)
 
-	enableUpd, err := mainSystemDriver.Check()
+	enableUpd, err := false, nil
+	// if there's no force flag, check for updates
+	if !force {
+		enableUpd, err = mainSystemDriver.Check()
+	}
 	if err != nil {
 		slog.Error("Failed checking for updates")
 	}
@@ -132,7 +148,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if systemOutdated {
 		const OUTDATED_WARNING = "There hasn't been an update in over a month. Consider rebooting or running updates manually"
-		err := session.Notify(users, "System Warning", OUTDATED_WARNING)
+		err := session.Notify(users, "System Warning", OUTDATED_WARNING, "critical")
 		if err != nil {
 			slog.Error("Failed showing warning notification")
 		}
@@ -185,14 +201,14 @@ func Update(cmd *cobra.Command, args []string) {
 		for _, output := range outputs {
 			slog.Info(output.Context, slog.Any("output", output))
 		}
-
-		return
 	}
 
 	var failures = []drv.CommandOutput{}
+	var contexts = []string{}
 	for _, output := range outputs {
 		if output.Failure {
 			failures = append(failures, output)
+			contexts = append(contexts, output.Context)
 		}
 	}
 
@@ -202,9 +218,18 @@ func Update(cmd *cobra.Command, args []string) {
 		for _, output := range failures {
 			slog.Info(output.Context, slog.Any("output", output))
 		}
+		session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
 
 		return
 	}
 
 	slog.Info("Updates Completed Successfully")
+	if applySystem && mainSystemDriverConfig.Enabled {
+		slog.Info("Applying System Update")
+		cmd := exec.Command("/usr/bin/systemctl", "reboot")
+		err := cmd.Run()
+		if err != nil {
+			slog.Error("Failed rebooting machine for updates", slog.Any("error", err))
+		}
+	}
 }

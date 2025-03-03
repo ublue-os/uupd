@@ -64,7 +64,9 @@ func (up SystemUpdater) Outdated() (bool, error) {
 	if err != nil {
 		return false, nil
 	}
-	return rpmostree.IsOutdatedOneMonthTimestamp(time.Now(), timestamp), nil
+	oneMonthAgo := time.Now().AddDate(0, -1, 0).UTC()
+
+	return timestamp.UTC().Before(oneMonthAgo), nil
 }
 
 func (up SystemUpdater) Update() (*[]CommandOutput, error) {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"os/exec"
+	osUser "os/user"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -44,16 +45,16 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 }
 
 func RunUID(logger *slog.Logger, level slog.Level, uid int, command []string, env map[string]string) ([]byte, error) {
-	// Just fork systemd-run, we don't need to rewrite systemd-run with dbus
-	cmdArgs := []string{
-		"/usr/bin/machinectl",
-		"shell",
-		"--quiet",
-		fmt.Sprintf("%d@", uid),
+	user, err := osUser.LookupId(fmt.Sprintf("%d", uid))
+
+	if err != nil {
+		return []byte{}, fmt.Errorf("Failed to lookup UID: %d, returned error: %v", uid, err)
 	}
-	// if uid != 0 {
-	// 	cmdArgs = append(cmdArgs, "--user")
-	// }
+	cmdArgs := []string{
+		"/usr/bin/pkexec",
+		"-u",
+		user.Username,
+	}
 	cmdArgs = append(cmdArgs, command...)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
@@ -104,10 +105,11 @@ func ListUsers() ([]User, error) {
 	return users, nil
 }
 
-func Notify(users []User, summary string, body string) error {
+func Notify(users []User, summary string, body string, urgency string) error {
 	for _, user := range users {
 		// we don't care if these exit
-		_, _ = RunUID(nil, slog.LevelDebug, user.UID, []string{"/usr/bin/notify-send", "--app-name", "uupd", summary, body}, nil)
+		cmd := exec.Command("/usr/bin/machinectl", "shell", fmt.Sprintf("%d@", user.UID), "/usr/bin/notify-send", "--urgency", urgency, "--app-name", "uupd", summary, body)
+		_ = cmd.Run()
 	}
 	return nil
 }
