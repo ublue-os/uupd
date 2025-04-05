@@ -73,10 +73,12 @@ func (up SystemUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 	var cmd *exec.Cmd
 	binaryPath := up.BinaryPath
+
 	cli := []string{binaryPath, "upgrade", "--quiet"}
 	up.Config.Logger.Debug("Executing update", slog.Any("cli", cli))
 	cmd = exec.Command(cli[0], cli[1:]...)
 	out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, cmd)
+
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Failure = err != nil
 	tmpout.Context = "System Update"
@@ -121,55 +123,44 @@ func (up SystemUpdater) Check() (bool, error) {
 	return updateNecessary, nil
 }
 
-func BootcCompatible(binaryPath string) (bool, error) {
+func BootcCompatible(binaryPath string) bool {
 	cmd := exec.Command(binaryPath, "status", "--format=json")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return false, nil
+		return false
 	}
 	var status bootcStatus
 	err = json.Unmarshal(out, &status)
 	if err != nil {
-		return false, nil
+		return false
 	}
-	return !(status.Status.Booted.Incompatible || status.Status.Staged.Incompatible), nil
+	return !(status.Status.Booted.Incompatible || status.Status.Staged.Incompatible)
 }
 
 func InitializeSystemDriver(initConfiguration UpdaterInitConfiguration) (SystemUpdateDriver, DriverConfiguration, bool, error) {
-	var enableUpd bool = true
 
 	rpmOstreeUpdater, err := rpmostree.RpmOstreeUpdater{}.New(initConfiguration)
-	if err != nil {
-		enableUpd = false
-	}
 
 	systemUpdater, err := SystemUpdater{}.New(initConfiguration)
-	if err != nil {
-		enableUpd = false
-	}
 
-	isBootc, err := BootcCompatible(systemUpdater.BinaryPath)
-	if err != nil {
-		isBootc = false
-	}
+	isBootc := BootcCompatible(systemUpdater.BinaryPath)
 
 	if !isBootc {
 		slog.Debug("Using rpm-ostree fallback as system driver")
 	}
 
 	// The system driver to be applied needs to have the correct "enabled" value since it will NOT update from here onwards.
-	systemUpdater.Config.Enabled = systemUpdater.Config.Enabled && isBootc && enableUpd
-	rpmOstreeUpdater.Config.Enabled = rpmOstreeUpdater.Config.Enabled && !isBootc && enableUpd
+	systemUpdater.Config.Enabled = systemUpdater.Config.Enabled && isBootc
 
-	var finalConfig DriverConfiguration
+	rpmOstreeUpdater.Config.Enabled = rpmOstreeUpdater.Config.Enabled && !isBootc
+
+	// var finalConfig DriverConfiguration
 	var mainSystemDriver SystemUpdateDriver
 	if isBootc {
-		mainSystemDriver = &systemUpdater
-		finalConfig = systemUpdater.Config
-	} else {
-		mainSystemDriver = &rpmOstreeUpdater
-		finalConfig = systemUpdater.Config
+		mainSystemDriver = systemUpdater
+		return mainSystemDriver, systemUpdater.Config, isBootc, err
 	}
+	mainSystemDriver = rpmOstreeUpdater
+	return mainSystemDriver, rpmOstreeUpdater.Config, isBootc, err
 
-	return mainSystemDriver, finalConfig, isBootc, err
 }
