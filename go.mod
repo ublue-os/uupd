@@ -6,7 +6,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/shirou/gopsutil/v4 v4.25.2
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/term v0.29.0
+	golang.org/x/term v0.31.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
