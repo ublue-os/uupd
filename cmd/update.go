@@ -111,7 +111,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	mainSystemDriver, mainSystemDriverConfig, _, _ := system.InitializeSystemDriver(*initConfiguration)
 
-	enableUpd, err := false, nil
+	enableUpd, err := true, nil
 	// if there's no force flag, check for updates
 	if !force {
 		enableUpd, err = mainSystemDriver.Check()

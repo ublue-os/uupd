@@ -57,10 +57,13 @@ func (up RpmOstreeUpdater) Outdated() (bool, error) {
 
 func (up RpmOstreeUpdater) Update() (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
-	var cmd *exec.Cmd
 	binaryPath := up.BinaryPath
+
 	cli := []string{binaryPath, "upgrade"}
+	up.Config.Logger.Debug("Executing update", slog.Any("cli", cli))
+	cmd := exec.Command(cli[0], cli[1:]...)
 	out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, cmd)
+
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Cli = cli
 	tmpout.Failure = err != nil
