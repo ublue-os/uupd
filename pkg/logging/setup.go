@@ -30,6 +30,12 @@ func SetupAppLogger(writer *os.File, logLevel slog.Leveler, verbose bool) slog.H
 	if verbose {
 		return slog.NewJSONHandler(writer, &slog.HandlerOptions{
 			Level: logLevel,
+			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+				if a.Key == slog.TimeKey {
+					return slog.Attr{}
+				}
+				return a
+			},
 		})
 	}
 	return NewUserHandler(&slog.HandlerOptions{Level: logLevel})
