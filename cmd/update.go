@@ -67,6 +67,26 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed to get force flag", "error", err)
 		return
 	}
+	disableModuleSystem, err := cmd.Flags().GetBool("disable-module-system")
+	if err != nil {
+		slog.Error("Failed to get disable-module-system flag", "error", err)
+		return
+	}
+	disableModuleFlatpak, err := cmd.Flags().GetBool("disable-module-flatpak")
+	if err != nil {
+		slog.Error("Failed to get disable-module-flatpak flag", "error", err)
+		return
+	}
+	disableModuleBrew, err := cmd.Flags().GetBool("disable-module-brew")
+	if err != nil {
+		slog.Error("Failed to get disable-module-brew flag", "error", err)
+		return
+	}
+	disableModuleDistrobox, err := cmd.Flags().GetBool("disable-module-distrobox")
+	if err != nil {
+		slog.Error("Failed to get disable-module-distrobox flag", "error", err)
+		return
+	}
 
 	if hwCheck {
 		err := checks.RunHwChecks()
@@ -94,12 +114,14 @@ func Update(cmd *cobra.Command, args []string) {
 		brewUpdater.Config.Enabled = false
 		slog.Debug("Brew driver failed to initialize", slog.Any("error", err))
 	}
+	brewUpdater.Config.Enabled = !disableModuleBrew
 
 	flatpakUpdater, err := flatpak.FlatpakUpdater{}.New(*initConfiguration)
 	if err != nil {
 		flatpakUpdater.Config.Enabled = false
 		slog.Debug("Flatpak driver failed to initialize", slog.Any("error", err))
 	}
+	flatpakUpdater.Config.Enabled = !disableModuleFlatpak
 	flatpakUpdater.SetUsers(users)
 
 	distroboxUpdater, err := distrobox.DistroboxUpdater{}.New(*initConfiguration)
@@ -107,6 +129,7 @@ func Update(cmd *cobra.Command, args []string) {
 		distroboxUpdater.Config.Enabled = false
 		slog.Debug("Distrobox driver failed to initialize", slog.Any("error", err))
 	}
+	distroboxUpdater.Config.Enabled = !disableModuleDistrobox
 	distroboxUpdater.SetUsers(users)
 
 	mainSystemDriver, mainSystemDriverConfig, _, _ := system.InitializeSystemDriver(*initConfiguration)
@@ -119,7 +142,7 @@ func Update(cmd *cobra.Command, args []string) {
 	if err != nil {
 		slog.Error("Failed checking for updates")
 	}
-	mainSystemDriverConfig.Enabled = mainSystemDriverConfig.Enabled && enableUpd
+	mainSystemDriverConfig.Enabled = mainSystemDriverConfig.Enabled && enableUpd && !disableModuleSystem
 
 	slog.Debug("System Updater module status", slog.Bool("enabled", mainSystemDriverConfig.Enabled))
 
