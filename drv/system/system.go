@@ -162,5 +162,4 @@ func InitializeSystemDriver(initConfiguration UpdaterInitConfiguration) (SystemU
 	}
 	mainSystemDriver = rpmOstreeUpdater
 	return mainSystemDriver, rpmOstreeUpdater.Config, isBootc, err
-
 }

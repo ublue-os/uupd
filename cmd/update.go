@@ -13,6 +13,7 @@ import (
 	"github.com/ublue-os/uupd/drv/distrobox"
 	"github.com/ublue-os/uupd/drv/flatpak"
 	drv "github.com/ublue-os/uupd/drv/generic"
+	"github.com/ublue-os/uupd/drv/rpmostree"
 	"github.com/ublue-os/uupd/drv/system"
 
 	"github.com/ublue-os/uupd/pkg/filelock"
@@ -160,9 +161,18 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if mainSystemDriverConfig.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
+
 		tracker.ReportStatusChange(mainSystemDriverConfig.Title, mainSystemDriverConfig.Description)
-		var out *[]drv.CommandOutput
-		out, err = mainSystemDriver.Update()
+
+		out, err := mainSystemDriver.Update()
+		if err != nil {
+			slog.Debug("bootc update failed, falling back to rpm-ostree updater")
+
+			rpmostree_updater, rpmostree_err := rpmostree.RpmOstreeUpdater{}.New(*initConfiguration)
+			rpmostree_out, rpmostree_err := rpmostree_updater.Update()
+			err = rpmostree_err
+			out = rpmostree_out
+		}
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
