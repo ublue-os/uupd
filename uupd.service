@@ -4,3 +4,4 @@ Description=Universal Blue Update Oneshot Service
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/uupd --log-level debug --json --hw-check
+SELinuxContext=system_u:unconfined_r:unconfined_t:s0
