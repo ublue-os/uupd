@@ -168,10 +168,10 @@ func Update(cmd *cobra.Command, args []string) {
 		if err != nil {
 			slog.Debug("bootc update failed, falling back to rpm-ostree updater")
 
-			rpmostree_updater, rpmostree_err := rpmostree.RpmOstreeUpdater{}.New(*initConfiguration)
-			rpmostree_out, rpmostree_err := rpmostree_updater.Update()
-			err = rpmostree_err
-			out = rpmostree_out
+			rpmostreeUpdater, rpmostreeErr := rpmostree.RpmOstreeUpdater{}.New(*initConfiguration)
+			rpmostreeOut, rpmostreeErr := rpmostreeUpdater.Update()
+			err = rpmostreeErr
+			out = rpmostreeOut
 		}
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
