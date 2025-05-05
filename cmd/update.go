@@ -241,7 +241,6 @@ func Update(cmd *cobra.Command, args []string) {
 		for _, output := range failures {
 			slog.Info(output.Context, slog.Any("output", output))
 		}
-		session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
 
 		return
 	}
