@@ -71,8 +71,8 @@ func (up DistroboxUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutpu
 	var finalOutput = []CommandOutput{}
 
 	if up.Config.DryRun {
-		tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
 		tracker.IncrementSection(nil)
+		tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
 
 		var err error = nil
 		for _, user := range up.users {
