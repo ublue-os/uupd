@@ -138,11 +138,11 @@ func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer) {
 
 		var progress BootcProgress
 
-		json.Unmarshal(scanner.Bytes(), &progress)
+		err := json.Unmarshal(scanner.Bytes(), &progress)
 
-		// if err != nil {
-		// 	log.Printf("Error Unmarshalling Json: %v", err)
-		// }
+		if err != nil {
+			continue
+		}
 
 		stageInfo, exists := PROGRESS_STAGES[progress.Task]
 

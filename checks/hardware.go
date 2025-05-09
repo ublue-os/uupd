@@ -64,13 +64,13 @@ func battery(conn *dbus.Conn) Info {
 	if !ok {
 		return Info{
 			name,
-			fmt.Errorf("Unable to get battery percent from: %v", variant),
+			fmt.Errorf("unable to get battery percent from: %v", variant),
 		}
 	}
 	if batteryPercent < 20 {
 		return Info{
 			name,
-			fmt.Errorf("Battery percent below 20, detected battery percent: %v", batteryPercent),
+			fmt.Errorf("battery percent below 20, detected battery percent: %v", batteryPercent),
 		}
 	}
 
@@ -87,13 +87,13 @@ func battery(conn *dbus.Conn) Info {
 	if !ok {
 		return Info{
 			name,
-			fmt.Errorf("Unable to get power profile from: %v", variant),
+			fmt.Errorf("unable to get power profile from: %v", variant),
 		}
 	}
 	if profile == "power-saver" {
 		return Info{
 			name,
-			fmt.Errorf("Current power profile is set to 'power-saver'"),
+			fmt.Errorf("current power profile is set to 'power-saver'"),
 		}
 	}
 
@@ -134,7 +134,7 @@ func network(conn *dbus.Conn) Info {
 	if metered == 1 || metered == 3 {
 		return Info{
 			name,
-			fmt.Errorf("Network is metered"),
+			fmt.Errorf("network is metered"),
 		}
 	}
 
@@ -152,7 +152,7 @@ func network(conn *dbus.Conn) Info {
 	if connectivity != 4 {
 		return Info{
 			name,
-			fmt.Errorf("Network not online"),
+			fmt.Errorf("network not online"),
 		}
 	}
 
@@ -207,7 +207,7 @@ func memory() Info {
 	if v.UsedPercent > 90.0 {
 		return Info{
 			name,
-			fmt.Errorf("Current memory usage above 90 percent: %v", v.UsedPercent),
+			fmt.Errorf("current memory usage above 90 percent: %v", v.UsedPercent),
 		}
 	}
 	return Info{
