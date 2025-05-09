@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
@@ -154,21 +153,21 @@ func Update(cmd *cobra.Command, args []string) {
 	if !disableOsc {
 		percent.ResetOscProgress()
 	}
-
 	// -1 because 0 index
-	tracker := &percent.Incrementer{MaxIncrements: totalSteps - 1, OscEnabled: !disableOsc}
+	tracker := percent.NewIncrementer(!disableOsc, totalSteps-1)
+	// mainSystemDriver.SetupTrackers(&tracker)
+	// flatpakUpdater.SetupTrackers(&tracker)
+	flatpakUpdater.Tracker = &tracker
+	distroboxUpdater.Tracker = &tracker
 
-	flatpakUpdater.Tracker = tracker
-	distroboxUpdater.Tracker = tracker
+	go tracker.ProgressWriter.Render()
 
 	var outputs = []drv.CommandOutput{}
 
 	systemOutdated, err := mainSystemDriver.Outdated()
-
 	if err != nil {
 		slog.Error("Failed checking if system is out of date")
 	}
-
 	if systemOutdated {
 		const OUTDATED_WARNING = "There hasn't been an update in over a month. Consider rebooting or running updates manually"
 		err := session.Notify(users, "System Warning", OUTDATED_WARNING, "critical")
@@ -185,7 +184,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
 		tracker.ReportStatusChange(mainSystemDriverConfig.Title, mainSystemDriverConfig.Description)
 		var out *[]drv.CommandOutput
-		out, err = mainSystemDriver.Update()
+		out, err = mainSystemDriver.Update(&tracker)
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
@@ -241,7 +240,7 @@ func Update(cmd *cobra.Command, args []string) {
 		for _, output := range failures {
 			slog.Info(output.Context, slog.Any("output", output))
 		}
-		session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
+		// session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
 
 		return
 	}

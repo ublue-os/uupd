@@ -12,6 +12,7 @@ import (
 	"time"
 
 	. "github.com/ublue-os/uupd/drv/generic"
+	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
@@ -55,7 +56,7 @@ func (up RpmOstreeUpdater) Outdated() (bool, error) {
 	return timestamp.UTC().Before(oneMonthAgo), nil
 }
 
-func (up RpmOstreeUpdater) Update() (*[]CommandOutput, error) {
+func (up RpmOstreeUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 	binaryPath := up.BinaryPath
 

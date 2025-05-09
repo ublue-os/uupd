@@ -58,9 +58,7 @@ func battery(conn *dbus.Conn) Info {
 			err,
 		}
 	}
-
 	batteryPercent, ok := variant.Value().(float64)
-
 	if !ok {
 		return Info{
 			name,
@@ -71,6 +69,29 @@ func battery(conn *dbus.Conn) Info {
 		return Info{
 			name,
 			fmt.Errorf("Battery percent below 20, detected battery percent: %v", batteryPercent),
+		}
+	}
+
+	// check if user is running on low power mode
+	powerProfiles := conn.Object("org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles")
+	variant, err = powerProfiles.GetProperty("org.freedesktop.UPower.PowerProfiles.ActiveProfile")
+	if err != nil {
+		return Info{
+			name,
+			err,
+		}
+	}
+	profile, ok := variant.Value().(string)
+	if !ok {
+		return Info{
+			name,
+			fmt.Errorf("Unable to get power profile from: %v", variant),
+		}
+	}
+	if profile == "power-saver" {
+		return Info{
+			name,
+			fmt.Errorf("Current power profile is set to 'power-saver'"),
 		}
 	}
 
