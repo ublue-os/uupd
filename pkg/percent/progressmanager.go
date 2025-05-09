@@ -75,7 +75,7 @@ func (it *Incrementer) ReportStatusChange(title string, description string) {
 	// OSC escape sequence to up the overall percentage
 	fmt.Printf("\033]9;4;1;%d\a", int(percentage))
 
-	finalMessage := fmt.Sprintf("Updating %s (%s) Step: [%d/%d]", title, description, it.DoneIncrements+1, it.MaxIncrements+1)
+	finalMessage := fmt.Sprintf("Updating %s (%s) Step: [%d/%d]", title, description, it.CurrentStep(), it.MaxIncrements+1)
 
 	it.ProgressWriter.SetMessageLength(len(finalMessage))
 	it.PTracker.Tracker.UpdateMessage(finalMessage)
@@ -120,21 +120,23 @@ func NewIncrementer(progressEnabled bool, max int) Incrementer {
 }
 
 func (it *Incrementer) IncrementSection(err error) {
-	it.PTracker.Tracker.MarkAsDone()
-	if int64(it.DoneIncrements)+int64(1) > int64(it.MaxIncrements) {
-		return
+	if it.ProgressEnabled {
+		it.PTracker.Tracker.MarkAsDone()
 	}
 
-	it.DoneIncrements += 1
-	if !it.ProgressEnabled {
+	if int64(it.DoneIncrements+1) > int64(it.MaxIncrements) {
 		return
 	}
-	it.PTracker = newTracker(it.ProgressEnabled)
-	it.ProgressWriter.AppendTracker(it.PTracker.Tracker)
+	it.DoneIncrements += 1
+
+	if it.ProgressEnabled {
+		it.PTracker = newTracker(it.ProgressEnabled)
+		it.ProgressWriter.AppendTracker(it.PTracker.Tracker)
+	}
 }
 
 func (it *Incrementer) OverallPercent() float64 {
-	steps := ((float64(it.CurrentStep()) + it.PTracker.Progress/100.0) / float64(it.PTracker.Progress)) * 100.0
+	steps := ((float64(it.CurrentStep()) + it.PTracker.Progress/100.0) / float64(it.MaxIncrements+1)) * 100.0
 	return math.Round(steps)
 }
 
