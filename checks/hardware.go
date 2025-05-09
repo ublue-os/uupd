@@ -2,10 +2,12 @@ package checks
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v4/net"
 )
 
 type Info struct {
@@ -151,6 +153,39 @@ func network(conn *dbus.Conn) Info {
 		return Info{
 			name,
 			fmt.Errorf("Network not online"),
+		}
+	}
+
+	// sample the network for 5 seconds
+	s, err := net.IOCounters(false)
+	if err != nil {
+		return Info{
+			name,
+			err,
+		}
+	}
+	current := s[0].BytesRecv
+	var total uint64 = 0
+	for range 5 {
+		time.Sleep(time.Second)
+		s, err := net.IOCounters(false)
+		if err != nil {
+			return Info{
+				name,
+				err,
+			}
+		}
+		new := s[0].BytesRecv
+		total += new - current
+		fmt.Println(new - current)
+		current = new
+	}
+	netAvg := total / 5
+
+	if netAvg > 500000 {
+		return Info{
+			name,
+			fmt.Errorf("Network is busy, with %v bytes recieved", netAvg),
 		}
 	}
 

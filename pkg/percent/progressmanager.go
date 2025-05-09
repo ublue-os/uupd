@@ -50,8 +50,6 @@ func NewProgressWriter() progress.Writer {
 	pw.SetUpdateFrequency(time.Millisecond * 100)
 	pw.Style().Options.PercentFormat = "%4.1f%%"
 	pw.Style().Colors = CuteColors
-	// pw.SetNumTrackersExpected(1)
-	// pw.SetAutoStop(false) // pw.Style().Visibility.TrackerOverall = false
 	return pw
 }
 
