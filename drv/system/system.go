@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -55,9 +54,9 @@ type StageInfo struct {
 }
 
 var PROGRESS_STAGES = map[string]StageInfo{
-	"pulling":   {"Downloading: ", 0, 80},
-	"importing": {"Importing:", 80, 10},
-	"staging":   {"Deploying:", 90, 10},
+	"pulling":   {"Downloading", 0, 80},
+	"importing": {"Importing", 80, 10},
+	"staging":   {"Deploying", 90, 10},
 	"unknown":   {"Loading", 100, 0},
 }
 
@@ -125,8 +124,7 @@ func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, 
 
 	scanner := bufio.NewScanner(r)
 	go bootcScan(scanner, tracker)
-
-	// out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, cmd)
+	err = cmd.Wait()
 
 	tmpout := CommandOutput{}.New(errb.Bytes(), err)
 	tmpout.Failure = err != nil
@@ -158,14 +156,14 @@ func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer) {
 			total := progress.StepsTotal
 			value := float64(stageInfo.Start) + min(float64(stageInfo.Length), float64(curr)/float64(total+1)*float64(stageInfo.Length))
 			tracker.SectionPercent(value)
-			tracker.ReportStatusChange(fmt.Sprintf("Stage: %s", stageInfo.Text), stageInfo.Text)
+			tracker.ReportStatusChange("System", stageInfo.Text)
 
 		case "ProgressBytes":
 			curr := progress.Bytes
 			total := progress.BytesTotal
 			value := float64(stageInfo.Start) + min(float64(stageInfo.Length), float64(curr)/float64(total)*float64(stageInfo.Length))
 			tracker.SectionPercent(value)
-			tracker.ReportStatusChange(fmt.Sprintf("Stage: %s", stageInfo.Text), stageInfo.Text)
+			tracker.ReportStatusChange("System", stageInfo.Text)
 		default:
 			continue
 		}

@@ -2,11 +2,12 @@ package percent
 
 import (
 	"fmt"
-	"github.com/jedib0t/go-pretty/v6/progress"
-	"github.com/jedib0t/go-pretty/v6/text"
 	"log/slog"
 	"math"
 	"time"
+
+	"github.com/jedib0t/go-pretty/v6/progress"
+	"github.com/jedib0t/go-pretty/v6/text"
 )
 
 type Incrementer struct {
@@ -14,9 +15,10 @@ type Incrementer struct {
 	MaxIncrements     int
 	IncrementProgress float64
 	// Controls the OSC progress escape code, as well as the actual cmdline progressbar
-	OscEnabled     bool
-	ProgressWriter progress.Writer
-	Tracker        *progress.Tracker
+	ProgressEnabled bool
+	ProgressWriter  progress.Writer
+	Tracker         *progress.Tracker
+	Trackers        []*progress.Tracker
 }
 
 // type StepTracker struct {
@@ -40,21 +42,22 @@ func NewProgressWriter() progress.Writer {
 	pw := progress.NewWriter()
 	pw.SetTrackerLength(25)
 	pw.Style().Visibility.TrackerOverall = true
-	pw.Style().Visibility.Time = true
+	pw.Style().Visibility.Time = false
 	pw.Style().Visibility.Tracker = true
 	pw.Style().Visibility.Value = true
 	pw.SetMessageLength(32)
-	pw.SetSortBy(progress.SortByPercentDsc)
+	pw.SetSortBy(progress.SortByNone)
 	pw.SetStyle(progress.StyleBlocks)
 	pw.SetTrackerPosition(progress.PositionRight)
-	pw.SetUpdateFrequency(time.Millisecond * 100)
+	pw.SetUpdateFrequency(time.Millisecond * 200)
 	pw.Style().Options.PercentFormat = "%4.1f%%"
 	pw.Style().Colors = CuteColors
+	pw.SetAutoStop(false)
 	return pw
 }
 
 func (it *Incrementer) ReportStatusChange(title string, description string) {
-	if !it.OscEnabled {
+	if !it.ProgressEnabled {
 		slog.Info("Updating",
 			slog.String("title", title),
 			slog.String("description", description),
@@ -63,14 +66,21 @@ func (it *Incrementer) ReportStatusChange(title string, description string) {
 			slog.Float64("step_progress", it.IncrementProgress),
 			slog.Float64("overall", it.OverallPercent()),
 		)
+		return
 	}
 
 	percentage := it.OverallPercent()
 	fmt.Printf("\033]9;4;1;%d\a", int(percentage))
-	finalMessage := fmt.Sprintf("Updating %s (%s)", title, description)
+	finalMessage := fmt.Sprintf("Updating %s (%s) Step: [%d/%d]", title, description, it.DoneIncrements+1, it.MaxIncrements+1)
+	if description == "" {
+		finalMessage = fmt.Sprintf("Updating %s Step: [%d/%d]", title, it.DoneIncrements+1, it.MaxIncrements+1)
+	}
 	it.ProgressWriter.SetMessageLength(len(finalMessage))
 	it.Tracker.UpdateMessage(finalMessage)
-	it.Tracker.SetValue(int64(it.OverallPercent()))
+	if title == "System" {
+		it.Tracker.UpdateTotal(100)
+	}
+	it.Tracker.SetValue(int64(it.IncrementProgress))
 }
 
 func ResetOscProgress() {
@@ -81,6 +91,8 @@ func ResetOscProgress() {
 
 func NewIncrementer(oscEnabled bool, max int) Incrementer {
 	var pw progress.Writer
+	// var tracker progress.Tracker
+	var trackers []*progress.Tracker
 	var tracker progress.Tracker
 	// susRef := &tracker
 	if oscEnabled {
@@ -88,7 +100,7 @@ func NewIncrementer(oscEnabled bool, max int) Incrementer {
 		tracker = progress.Tracker{
 			Message: "Updating",
 			Units:   progress.UnitsDefault,
-			Total:   100,
+			Total:   0,
 		}
 		pw.AppendTracker(&tracker)
 	}
@@ -99,6 +111,7 @@ func NewIncrementer(oscEnabled bool, max int) Incrementer {
 		oscEnabled,
 		pw,
 		&tracker,
+		trackers,
 	}
 }
 
@@ -107,11 +120,24 @@ func (it *Incrementer) IncrementSection(err error) {
 	if int64(it.DoneIncrements)+int64(1) > int64(it.MaxIncrements) {
 		return
 	}
+
 	it.DoneIncrements += 1
+	if !it.ProgressEnabled {
+		return
+	}
+	it.Tracker.MarkAsDone()
+	newTracker := progress.Tracker{
+		Message: "Updating",
+		Units:   progress.UnitsDefault,
+		Total:   0,
+	}
+
+	it.Tracker = &newTracker
+	it.ProgressWriter.AppendTracker(&newTracker)
 }
 
 func (it *Incrementer) OverallPercent() float64 {
-	steps := ((float64(it.CurrentStep()) + it.IncrementProgress) / float64(it.MaxIncrements)) * 100.0
+	steps := ((float64(it.CurrentStep()) + it.IncrementProgress/100.0) / float64(it.MaxIncrements)) * 100.0
 	return math.Round(steps)
 }
 

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
@@ -51,9 +52,9 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed to get verbose flag", "error", err)
 		return
 	}
-	disableOsc, err := cmd.Flags().GetBool("disable-osc-progress")
+	disableProgress, err := cmd.Flags().GetBool("disable-progress")
 	if err != nil {
-		slog.Error("Failed to get disable-osc-progress flag", "error", err)
+		slog.Error("Failed to get disable-progress flag", "error", err)
 		return
 	}
 	applySystem, err := cmd.Flags().GetBool("apply")
@@ -150,17 +151,16 @@ func Update(cmd *cobra.Command, args []string) {
 		totalSteps += mainSystemDriver.Steps()
 	}
 
-	if !disableOsc {
-		percent.ResetOscProgress()
-	}
 	// -1 because 0 index
-	tracker := percent.NewIncrementer(!disableOsc, totalSteps-1)
+	tracker := percent.NewIncrementer(!disableProgress, totalSteps-1)
 	// mainSystemDriver.SetupTrackers(&tracker)
 	// flatpakUpdater.SetupTrackers(&tracker)
 	flatpakUpdater.Tracker = &tracker
 	distroboxUpdater.Tracker = &tracker
-
-	go tracker.ProgressWriter.Render()
+	if !disableProgress {
+		percent.ResetOscProgress()
+		go tracker.ProgressWriter.Render()
+	}
 
 	var outputs = []drv.CommandOutput{}
 
@@ -182,7 +182,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if mainSystemDriverConfig.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
-		tracker.ReportStatusChange(mainSystemDriverConfig.Title, mainSystemDriverConfig.Description)
+		tracker.ReportStatusChange(mainSystemDriverConfig.Title, "")
 		var out *[]drv.CommandOutput
 		out, err = mainSystemDriver.Update(&tracker)
 		outputs = append(outputs, *out...)
@@ -214,7 +214,9 @@ func Update(cmd *cobra.Command, args []string) {
 		tracker.IncrementSection(err)
 	}
 
-	if !disableOsc {
+	if !disableProgress {
+		tracker.ProgressWriter.Stop()
+		time.Sleep(time.Millisecond * 100)
 		percent.ResetOscProgress()
 	}
 	if verboseRun {
