@@ -177,7 +177,6 @@ func network(conn *dbus.Conn) Info {
 		}
 		new := s[0].BytesRecv
 		total += new - current
-		fmt.Println(new - current)
 		current = new
 	}
 	netAvg := total / 5
@@ -185,7 +184,7 @@ func network(conn *dbus.Conn) Info {
 	if netAvg > 500000 {
 		return Info{
 			name,
-			fmt.Errorf("Network is busy, with %v bytes recieved", netAvg),
+			fmt.Errorf("network is busy, with %v bytes recieved", netAvg),
 		}
 	}
 
