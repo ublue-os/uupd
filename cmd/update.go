@@ -153,10 +153,6 @@ func Update(cmd *cobra.Command, args []string) {
 
 	// -1 because 0 index
 	tracker := percent.NewIncrementer(!disableProgress, totalSteps-1)
-	// mainSystemDriver.SetupTrackers(&tracker)
-	// flatpakUpdater.SetupTrackers(&tracker)
-	flatpakUpdater.Tracker = &tracker
-	distroboxUpdater.Tracker = &tracker
 	if !disableProgress {
 		percent.ResetOscProgress()
 		go tracker.ProgressWriter.Render()
@@ -184,6 +180,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
 		tracker.ReportStatusChange(mainSystemDriverConfig.Title, "")
 		var out *[]drv.CommandOutput
+		// Pass in the tracker manually because setting it in the config is less possible
 		out, err = mainSystemDriver.Update(&tracker)
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
@@ -193,7 +190,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Debug(fmt.Sprintf("%s module", brewUpdater.Config.Title), slog.String("module_name", brewUpdater.Config.Title), slog.Any("module_configuration", brewUpdater.Config))
 		tracker.ReportStatusChange(brewUpdater.Config.Title, brewUpdater.Config.Description)
 		var out *[]drv.CommandOutput
-		out, err = brewUpdater.Update()
+		out, err = brewUpdater.Update(&tracker)
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
@@ -201,7 +198,7 @@ func Update(cmd *cobra.Command, args []string) {
 	if flatpakUpdater.Config.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", flatpakUpdater.Config.Title), slog.String("module_name", flatpakUpdater.Config.Title), slog.Any("module_configuration", flatpakUpdater.Config))
 		var out *[]drv.CommandOutput
-		out, err = flatpakUpdater.Update()
+		out, err = flatpakUpdater.Update(&tracker)
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
@@ -209,7 +206,7 @@ func Update(cmd *cobra.Command, args []string) {
 	if distroboxUpdater.Config.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", distroboxUpdater.Config.Title), slog.String("module_name", distroboxUpdater.Config.Title), slog.Any("module_configuration", distroboxUpdater.Config))
 		var out *[]drv.CommandOutput
-		out, err = distroboxUpdater.Update()
+		out, err = distroboxUpdater.Update(&tracker)
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}

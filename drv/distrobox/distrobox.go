@@ -12,7 +12,6 @@ import (
 
 type DistroboxUpdater struct {
 	Config       DriverConfiguration
-	Tracker      *percent.Incrementer
 	binaryPath   string
 	users        []session.User
 	usersEnabled bool
@@ -42,7 +41,6 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.usersEnabled = false
-	up.Tracker = nil
 
 	up.binaryPath = EnvOrFallback(up.Config.Environment, "UUPD_DISTROBOX_BINARY", "/usr/bin/distrobox")
 
@@ -69,22 +67,22 @@ func (up DistroboxUpdater) Check() (bool, error) {
 	return true, nil
 }
 
-func (up DistroboxUpdater) Update() (*[]CommandOutput, error) {
+func (up DistroboxUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 
 	if up.Config.DryRun {
-		up.Tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
-		up.Tracker.IncrementSection(nil)
+		tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
+		tracker.IncrementSection(nil)
 
 		var err error = nil
 		for _, user := range up.users {
-			up.Tracker.IncrementSection(err)
-			up.Tracker.ReportStatusChange(up.Config.Title, *up.Config.UserDescription+" "+user.Name)
+			tracker.IncrementSection(err)
+			tracker.ReportStatusChange(up.Config.Title, *up.Config.UserDescription+" "+user.Name)
 		}
 		return &finalOutput, nil
 	}
 
-	up.Tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
+	tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
 	cli := []string{up.binaryPath, "upgrade", "-a"}
 	out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, 0, cli, nil)
 	tmpout := CommandOutput{}.New(out, err)
@@ -95,9 +93,9 @@ func (up DistroboxUpdater) Update() (*[]CommandOutput, error) {
 
 	err = nil
 	for _, user := range up.users {
-		up.Tracker.IncrementSection(err)
+		tracker.IncrementSection(err)
 		context := *up.Config.UserDescription + " " + user.Name
-		up.Tracker.ReportStatusChange(up.Config.Title, *up.Config.UserDescription+" "+user.Name)
+		tracker.ReportStatusChange(up.Config.Title, *up.Config.UserDescription+" "+user.Name)
 		cli := []string{up.binaryPath, "upgrade", "-a"}
 		out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, user.UID, cli, nil)
 		tmpout = CommandOutput{}.New(out, err)
