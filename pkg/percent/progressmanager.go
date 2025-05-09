@@ -118,6 +118,7 @@ func NewIncrementer(progressEnabled bool, max int) Incrementer {
 }
 
 func (it *Incrementer) IncrementSection(err error) {
+	it.PTracker.Tracker.MarkAsDone()
 	if int64(it.DoneIncrements)+int64(1) > int64(it.MaxIncrements) {
 		return
 	}
@@ -126,8 +127,6 @@ func (it *Incrementer) IncrementSection(err error) {
 	if !it.ProgressEnabled {
 		return
 	}
-	it.PTracker.Tracker.MarkAsDone()
-	time.Sleep(time.Millisecond * 100)
 	it.PTracker = newTracker(it.ProgressEnabled)
 	it.ProgressWriter.AppendTracker(it.PTracker.Tracker)
 }

@@ -102,6 +102,9 @@ func ListUsers() ([]User, error) {
 		if err != nil {
 			return nil, err
 		}
+		if parsed.UID == 0 {
+			continue
+		}
 
 		users = append(users, parsed)
 	}
