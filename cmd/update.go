@@ -178,7 +178,7 @@ func Update(cmd *cobra.Command, args []string) {
 
 	if mainSystemDriverConfig.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
-		tracker.ReportStatusChange(mainSystemDriverConfig.Title, "")
+		tracker.ReportStatusChange(mainSystemDriverConfig.Title, mainSystemDriverConfig.Description)
 		var out *[]drv.CommandOutput
 		// Pass in the tracker manually because setting it in the config is less possible
 		out, err = mainSystemDriver.Update(&tracker)

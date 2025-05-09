@@ -83,7 +83,7 @@ func (up RpmOstreeUpdater) Steps() int {
 func (up RpmOstreeUpdater) New(config UpdaterInitConfiguration) (RpmOstreeUpdater, error) {
 	up.Config = DriverConfiguration{
 		Title:       "System",
-		Description: "System Updates",
+		Description: "rpm-ostree",
 		Enabled:     !config.Ci,
 		DryRun:      config.DryRun,
 		Environment: config.Environment,

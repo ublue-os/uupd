@@ -66,15 +66,17 @@ func (it *Incrementer) ReportStatusChange(title string, description string) {
 		)
 		return
 	}
+	// Only System updates have proper progress reporting
 	if title == "System" {
 		it.PTracker.Tracker.UpdateTotal(100)
 	}
 	percentage := it.OverallPercent()
+
+	// OSC escape sequence to up the overall percentage
 	fmt.Printf("\033]9;4;1;%d\a", int(percentage))
+
 	finalMessage := fmt.Sprintf("Updating %s (%s) Step: [%d/%d]", title, description, it.DoneIncrements+1, it.MaxIncrements+1)
-	if description == "" {
-		finalMessage = fmt.Sprintf("Updating %s Step: [%d/%d]", title, it.DoneIncrements+1, it.MaxIncrements+1)
-	}
+
 	it.ProgressWriter.SetMessageLength(len(finalMessage))
 	it.PTracker.Tracker.UpdateMessage(finalMessage)
 	it.PTracker.Tracker.SetValue(int64(it.PTracker.Progress))
