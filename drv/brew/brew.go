@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	. "github.com/ublue-os/uupd/drv/generic"
+	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
@@ -38,7 +39,7 @@ func (up BrewUpdater) Check() (bool, error) {
 	return true, nil
 }
 
-func (up BrewUpdater) Update() (*[]CommandOutput, error) {
+func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, error) {
 	var final_output = []CommandOutput{}
 
 	if up.Config.DryRun {

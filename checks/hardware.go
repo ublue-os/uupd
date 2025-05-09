@@ -2,10 +2,12 @@ package checks
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v4/net"
 )
 
 type Info struct {
@@ -58,19 +60,40 @@ func battery(conn *dbus.Conn) Info {
 			err,
 		}
 	}
-
 	batteryPercent, ok := variant.Value().(float64)
-
 	if !ok {
 		return Info{
 			name,
-			fmt.Errorf("Unable to get battery percent from: %v", variant),
+			fmt.Errorf("unable to get battery percent from: %v", variant),
 		}
 	}
 	if batteryPercent < 20 {
 		return Info{
 			name,
-			fmt.Errorf("Battery percent below 20, detected battery percent: %v", batteryPercent),
+			fmt.Errorf("battery percent below 20, detected battery percent: %v", batteryPercent),
+		}
+	}
+
+	// check if user is running on low power mode
+	powerProfiles := conn.Object("org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles")
+	variant, err = powerProfiles.GetProperty("org.freedesktop.UPower.PowerProfiles.ActiveProfile")
+	if err != nil {
+		return Info{
+			name,
+			err,
+		}
+	}
+	profile, ok := variant.Value().(string)
+	if !ok {
+		return Info{
+			name,
+			fmt.Errorf("unable to get power profile from: %v", variant),
+		}
+	}
+	if profile == "power-saver" {
+		return Info{
+			name,
+			fmt.Errorf("current power profile is set to 'power-saver'"),
 		}
 	}
 
@@ -111,7 +134,7 @@ func network(conn *dbus.Conn) Info {
 	if metered == 1 || metered == 3 {
 		return Info{
 			name,
-			fmt.Errorf("Network is metered"),
+			fmt.Errorf("network is metered"),
 		}
 	}
 
@@ -129,7 +152,39 @@ func network(conn *dbus.Conn) Info {
 	if connectivity != 4 {
 		return Info{
 			name,
-			fmt.Errorf("Network not online"),
+			fmt.Errorf("network not online"),
+		}
+	}
+
+	// sample the network for 5 seconds
+	s, err := net.IOCounters(false)
+	if err != nil {
+		return Info{
+			name,
+			err,
+		}
+	}
+	current := s[0].BytesRecv
+	var total uint64 = 0
+	for range 5 {
+		time.Sleep(time.Second)
+		s, err := net.IOCounters(false)
+		if err != nil {
+			return Info{
+				name,
+				err,
+			}
+		}
+		new := s[0].BytesRecv
+		total += new - current
+		current = new
+	}
+	netAvg := total / 5
+
+	if netAvg > 500000 {
+		return Info{
+			name,
+			fmt.Errorf("network is busy, with %v bytes recieved", netAvg),
 		}
 	}
 
@@ -152,7 +207,7 @@ func memory() Info {
 	if v.UsedPercent > 90.0 {
 		return Info{
 			name,
-			fmt.Errorf("Current memory usage above 90 percent: %v", v.UsedPercent),
+			fmt.Errorf("current memory usage above 90 percent: %v", v.UsedPercent),
 		}
 	}
 	return Info{

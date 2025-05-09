@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
@@ -52,9 +52,9 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed to get verbose flag", "error", err)
 		return
 	}
-	disableOsc, err := cmd.Flags().GetBool("disable-osc-progress")
+	disableProgress, err := cmd.Flags().GetBool("disable-progress")
 	if err != nil {
-		slog.Error("Failed to get disable-osc-progress flag", "error", err)
+		slog.Error("Failed to get disable-progress flag", "error", err)
 		return
 	}
 	applySystem, err := cmd.Flags().GetBool("apply")
@@ -151,24 +151,19 @@ func Update(cmd *cobra.Command, args []string) {
 		totalSteps += mainSystemDriver.Steps()
 	}
 
-	if !disableOsc {
-		percent.ResetOscProgress()
-	}
-
 	// -1 because 0 index
-	tracker := &percent.Incrementer{MaxIncrements: totalSteps - 1, OscEnabled: !disableOsc}
-
-	flatpakUpdater.Tracker = tracker
-	distroboxUpdater.Tracker = tracker
+	tracker := percent.NewIncrementer(!disableProgress, totalSteps-1)
+	if !disableProgress {
+		percent.ResetOscProgress()
+		go tracker.ProgressWriter.Render()
+	}
 
 	var outputs = []drv.CommandOutput{}
 
 	systemOutdated, err := mainSystemDriver.Outdated()
-
 	if err != nil {
 		slog.Error("Failed checking if system is out of date")
 	}
-
 	if systemOutdated {
 		const OUTDATED_WARNING = "There hasn't been an update in over a month. Consider rebooting or running updates manually"
 		err := session.Notify(users, "System Warning", OUTDATED_WARNING, "critical")
@@ -185,7 +180,8 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
 		tracker.ReportStatusChange(mainSystemDriverConfig.Title, mainSystemDriverConfig.Description)
 		var out *[]drv.CommandOutput
-		out, err = mainSystemDriver.Update()
+		// Pass in the tracker manually because setting it in the config is less possible
+		out, err = mainSystemDriver.Update(&tracker)
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
@@ -194,7 +190,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Debug(fmt.Sprintf("%s module", brewUpdater.Config.Title), slog.String("module_name", brewUpdater.Config.Title), slog.Any("module_configuration", brewUpdater.Config))
 		tracker.ReportStatusChange(brewUpdater.Config.Title, brewUpdater.Config.Description)
 		var out *[]drv.CommandOutput
-		out, err = brewUpdater.Update()
+		out, err = brewUpdater.Update(&tracker)
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
@@ -202,7 +198,7 @@ func Update(cmd *cobra.Command, args []string) {
 	if flatpakUpdater.Config.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", flatpakUpdater.Config.Title), slog.String("module_name", flatpakUpdater.Config.Title), slog.Any("module_configuration", flatpakUpdater.Config))
 		var out *[]drv.CommandOutput
-		out, err = flatpakUpdater.Update()
+		out, err = flatpakUpdater.Update(&tracker)
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
@@ -210,12 +206,14 @@ func Update(cmd *cobra.Command, args []string) {
 	if distroboxUpdater.Config.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", distroboxUpdater.Config.Title), slog.String("module_name", distroboxUpdater.Config.Title), slog.Any("module_configuration", distroboxUpdater.Config))
 		var out *[]drv.CommandOutput
-		out, err = distroboxUpdater.Update()
+		out, err = distroboxUpdater.Update(&tracker)
 		outputs = append(outputs, *out...)
 		tracker.IncrementSection(err)
 	}
 
-	if !disableOsc {
+	if !disableProgress {
+		tracker.ProgressWriter.Stop()
+		time.Sleep(time.Millisecond * 100)
 		percent.ResetOscProgress()
 	}
 	if verboseRun {
@@ -241,7 +239,7 @@ func Update(cmd *cobra.Command, args []string) {
 		for _, output := range failures {
 			slog.Info(output.Context, slog.Any("output", output))
 		}
-		session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
+		// session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
 
 		return
 	}
