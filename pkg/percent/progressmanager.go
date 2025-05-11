@@ -121,7 +121,11 @@ func NewIncrementer(progressEnabled bool, max int) Incrementer {
 
 func (it *Incrementer) IncrementSection(err error) {
 	if it.ProgressEnabled {
-		it.PTracker.Tracker.MarkAsDone()
+		if err != nil {
+			it.PTracker.Tracker.MarkAsErrored()
+		} else {
+			it.PTracker.Tracker.MarkAsDone()
+		}
 	}
 
 	if int64(it.DoneIncrements+1) > int64(it.MaxIncrements) {

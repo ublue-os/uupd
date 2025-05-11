@@ -52,11 +52,22 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed to get verbose flag", "error", err)
 		return
 	}
+	jsonLog, err := cmd.Flags().GetBool("json")
+	if err != nil {
+		slog.Error("Failed to get json flag", "error", err)
+		return
+	}
 	disableProgress, err := cmd.Flags().GetBool("disable-progress")
 	if err != nil {
 		slog.Error("Failed to get disable-progress flag", "error", err)
 		return
 	}
+	logLevel, err := cmd.Flags().GetString("log-level")
+	if err != nil {
+		slog.Error("Failed to get log-level flag", "error", err)
+		return
+	}
+	disableProgress = disableProgress || jsonLog || (logLevel != "info")
 	applySystem, err := cmd.Flags().GetBool("apply")
 	if err != nil {
 		slog.Error("Failed to get apply flag", "error", err)

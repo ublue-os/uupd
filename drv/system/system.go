@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"os"
 	"os/exec"
 	"strings"
@@ -154,14 +155,14 @@ func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer) {
 		case "ProgressSteps":
 			curr := progress.Steps
 			total := progress.StepsTotal
-			value := float64(stageInfo.Start) + min(float64(stageInfo.Length), float64(curr)/float64(total+1)*float64(stageInfo.Length))
+			value := float64(stageInfo.Start) + math.Min(float64(stageInfo.Length), float64(curr)/float64(total+1)*float64(stageInfo.Length))
 			tracker.SectionPercent(value)
 			tracker.ReportStatusChange("System", stageInfo.Text)
 
 		case "ProgressBytes":
 			curr := progress.Bytes
 			total := progress.BytesTotal
-			value := float64(stageInfo.Start) + min(float64(stageInfo.Length), float64(curr)/float64(total)*float64(stageInfo.Length))
+			value := float64(stageInfo.Start) + math.Min(float64(stageInfo.Length), float64(curr)/float64(total)*float64(stageInfo.Length))
 			tracker.SectionPercent(value)
 			tracker.ReportStatusChange("System", stageInfo.Text)
 		default:
