@@ -3,6 +3,7 @@ package system
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"math"
@@ -124,7 +125,7 @@ func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, 
 	}
 
 	scanner := bufio.NewScanner(r)
-	go bootcScan(scanner, tracker)
+	go bootcScan(scanner, tracker, up.Config.Logger, slog.LevelDebug)
 	err = cmd.Wait()
 
 	tmpout := CommandOutput{}.New(errb.Bytes(), err)
@@ -134,9 +135,10 @@ func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, 
 	return &finalOutput, err
 }
 
-func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer) {
+func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slog.Logger, level slog.Level) {
 	for scanner.Scan() {
 
+		logger.Log(context.TODO(), level, scanner.Text())
 		var progress BootcProgress
 
 		err := json.Unmarshal(scanner.Bytes(), &progress)
@@ -144,6 +146,7 @@ func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer) {
 		if err != nil {
 			continue
 		}
+		logger.Log(context.TODO(), level, "scanned progress", slog.Any("struct", progress))
 
 		stageInfo, exists := PROGRESS_STAGES[progress.Task]
 

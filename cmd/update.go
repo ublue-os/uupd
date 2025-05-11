@@ -67,6 +67,7 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Error("Failed to get log-level flag", "error", err)
 		return
 	}
+	// We DONT want to display the progress bar when we have JSON logs or when are logs are cluttered/debug (prints out command output)
 	disableProgress = disableProgress || jsonLog || (logLevel != "info")
 	applySystem, err := cmd.Flags().GetBool("apply")
 	if err != nil {
