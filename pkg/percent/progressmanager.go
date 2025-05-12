@@ -81,8 +81,12 @@ func NewProgressWriter() progress.Writer {
 		if err != nil {
 			return pw
 		}
-		raw_color := accent.Data[0].Data
-		highlightColor, lowColor := findClosestColor(raw_color)
+		if len(accent.Data) == 0 {
+			slog.Debug("Accent data is empty")
+			return pw
+		}
+		rawColor := accent.Data[0].Data
+		highlightColor, lowColor := findClosestColor(rawColor)
 		validHighlightColor := text.Colors{highlightColor}
 		validLowColor := text.Colors{lowColor}
 		accentColorSet.Percent = validHighlightColor
