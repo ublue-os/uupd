@@ -1,15 +1,20 @@
 package system
 
 import (
+	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
+	"math"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	. "github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/rpmostree"
-	"github.com/ublue-os/uupd/pkg/session"
+	"github.com/ublue-os/uupd/pkg/percent"
 )
 
 type bootcStatus struct {
@@ -35,12 +40,36 @@ type SystemUpdateDriver interface {
 	Steps() int
 	Outdated() (bool, error)
 	Check() (bool, error)
-	Update() (*[]CommandOutput, error)
+	Update(tracker *percent.Incrementer) (*[]CommandOutput, error)
 }
 
 type SystemUpdater struct {
 	Config     DriverConfiguration
 	BinaryPath string
+}
+
+// Bootc Progress
+type StageInfo struct {
+	Text   string
+	Start  int
+	Length int
+}
+
+var PROGRESS_STAGES = map[string]StageInfo{
+	"pulling":   {"Downloading", 0, 80},
+	"importing": {"Importing", 80, 10},
+	"staging":   {"Deploying", 90, 10},
+	"unknown":   {"Loading", 100, 0},
+}
+
+type BootcProgress struct {
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Task        string `json:"task"`
+	Steps       int    `json:"steps"`
+	StepsTotal  int    `json:"stepsTotal"`
+	Bytes       int    `json:"bytes"`
+	BytesTotal  int    `json:"bytesTotal"`
 }
 
 func (up SystemUpdater) Outdated() (bool, error) {
@@ -69,23 +98,81 @@ func (up SystemUpdater) Outdated() (bool, error) {
 	return timestamp.UTC().Before(oneMonthAgo), nil
 }
 
-func (up SystemUpdater) Update() (*[]CommandOutput, error) {
+func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 	var cmd *exec.Cmd
 	binaryPath := up.BinaryPath
 
-	cli := []string{binaryPath, "upgrade", "--quiet"}
-	up.Config.Logger.Debug("Executing update", slog.Any("cli", cli))
-	cmd = exec.Command(cli[0], cli[1:]...)
-	out, err := session.RunLog(up.Config.Logger, slog.LevelDebug, cmd)
+	cli := []string{binaryPath, "upgrade", "--quiet", "--progress-fd", "3"}
 
-	tmpout := CommandOutput{}.New(out, err)
+	up.Config.Logger.Debug("Executing update", slog.Any("cli", cli))
+
+	cmd = exec.Command(cli[0], cli[1:]...)
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		return &finalOutput, err
+	}
+
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+	cmd.ExtraFiles = []*os.File{w}
+
+	err = cmd.Start()
+	if err != nil {
+		return &finalOutput, err
+	}
+
+	scanner := bufio.NewScanner(r)
+	go bootcScan(scanner, tracker, up.Config.Logger, slog.LevelDebug)
+	err = cmd.Wait()
+
+	tmpout := CommandOutput{}.New(errb.Bytes(), err)
 	tmpout.Failure = err != nil
 	tmpout.Context = "System Update"
 	finalOutput = append(finalOutput, *tmpout)
 	return &finalOutput, err
 }
 
+func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slog.Logger, level slog.Level) {
+	for scanner.Scan() {
+
+		logger.Log(context.TODO(), level, scanner.Text())
+		var progress BootcProgress
+
+		err := json.Unmarshal(scanner.Bytes(), &progress)
+
+		if err != nil {
+			continue
+		}
+		logger.Log(context.TODO(), level, "scanned progress", slog.Any("struct", progress))
+
+		stageInfo, exists := PROGRESS_STAGES[progress.Task]
+
+		if !exists {
+			stageInfo = PROGRESS_STAGES["unknown"]
+		}
+
+		switch progress.Type {
+		case "ProgressSteps":
+			curr := progress.Steps
+			total := progress.StepsTotal
+			value := float64(stageInfo.Start) + math.Min(float64(stageInfo.Length), float64(curr)/float64(total+1)*float64(stageInfo.Length))
+			tracker.SectionPercent(value)
+			tracker.ReportStatusChange("System", stageInfo.Text)
+
+		case "ProgressBytes":
+			curr := progress.Bytes
+			total := progress.BytesTotal
+			value := float64(stageInfo.Start) + math.Min(float64(stageInfo.Length), float64(curr)/float64(total)*float64(stageInfo.Length))
+			tracker.SectionPercent(value)
+			tracker.ReportStatusChange("System", stageInfo.Text)
+		default:
+			continue
+		}
+	}
+}
 func (up SystemUpdater) Steps() int {
 	if up.Config.Enabled {
 		return 1
@@ -96,7 +183,7 @@ func (up SystemUpdater) Steps() int {
 func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, error) {
 	up.Config = DriverConfiguration{
 		Title:       "System",
-		Description: "System Image",
+		Description: "Bootc",
 		Enabled:     !config.Ci,
 		DryRun:      config.DryRun,
 		Environment: config.Environment,
