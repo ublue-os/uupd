@@ -5,7 +5,7 @@ go 1.23.7
 require (
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/jedib0t/go-pretty/v6 v6.6.7
-	github.com/shirou/gopsutil/v4 v4.25.2
+	github.com/shirou/gopsutil/v4 v4.25.4
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/term v0.29.0
 	gopkg.in/yaml.v3 v3.0.1
