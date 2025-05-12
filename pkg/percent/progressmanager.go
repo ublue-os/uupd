@@ -79,10 +79,11 @@ func NewProgressWriter() progress.Writer {
 		var accent Accent
 		err = json.Unmarshal(out, &accent)
 		if err != nil {
+			slog.Error("Failed to unmarshal accent color data", slog.String("raw_data", string(out)), slog.Any("error", err))
 			return pw
 		}
 		if len(accent.Data) == 0 {
-			slog.Debug("Accent data is empty")
+			slog.Error("Accent data is empty")
 			return pw
 		}
 		rawColor := accent.Data[0].Data
