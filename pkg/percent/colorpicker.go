@@ -3,7 +3,7 @@ package percent
 import (
 	"math"
 
-	. "github.com/jedib0t/go-pretty/v6/text"
+	"github.com/jedib0t/go-pretty/v6/text"
 )
 
 // Accent color portal return as of xdg-desktop-portal-gnome 47.1
@@ -18,15 +18,15 @@ type Accent struct {
 // Colors taken straight from GNOME 47 accent colors using this command:
 // busctl --user call org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop org.freedesktop.portal.Settings ReadOne 'ss' 'org.freedesktop.appearance' 'accent-color'
 // This is as close as we can map the colors as possible afaik - Pink and Magenta DO look a like, and thats kind of a problem
-var colorMap = map[Color][3]float64{
-	FgHiBlack:   {0, 0, 0},
-	FgHiBlue:    {0.207843, 0.517647, 0.894118},
-	FgHiCyan:    {0.129412, 0.564706, 0.643137},
-	FgHiGreen:   {0.227451, 0.580392, 0.290196},
-	FgHiYellow:  {0.784314, 0.533333, 0},
-	FgHiRed:     {0.901961, 0.176471, 0.258824},
-	FgHiMagenta: {0.568627, 0.254902, 0.67451},
-	FgHiWhite:   {0.435294, 0.513726, 0.588235},
+var colorMap = map[text.Color][3]float64{
+	text.FgHiBlack:   {0, 0, 0},
+	text.FgHiBlue:    {0.207843, 0.517647, 0.894118},
+	text.FgHiCyan:    {0.129412, 0.564706, 0.643137},
+	text.FgHiGreen:   {0.227451, 0.580392, 0.290196},
+	text.FgHiYellow:  {0.784314, 0.533333, 0},
+	text.FgHiRed:     {0.901961, 0.176471, 0.258824},
+	text.FgHiMagenta: {0.568627, 0.254902, 0.67451},
+	text.FgHiWhite:   {0.435294, 0.513726, 0.588235},
 }
 
 // Calculates the squared Euclidean distance between two colors
@@ -39,8 +39,8 @@ func colorDistance(c1, c2 [3]float64) float64 {
 		distB*distB
 }
 
-func findClosestColor(rgb [3]float64) (Color, Color) {
-	var closestColor Color
+func findClosestColor(rgb [3]float64) (text.Color, text.Color) {
+	var closestColor text.Color
 	minDistance := math.MaxFloat64
 
 	for color, predefinedRGB := range colorMap {
@@ -59,13 +59,13 @@ func findClosestColor(rgb [3]float64) (Color, Color) {
 	return closestColor, closestColor
 }
 
-var hiToNonHiMap = map[Color]Color{
-	FgHiBlack:   FgBlack,
-	FgHiRed:     FgRed,
-	FgHiGreen:   FgGreen,
-	FgHiYellow:  FgYellow,
-	FgHiBlue:    FgBlue,
-	FgHiMagenta: FgMagenta,
-	FgHiCyan:    FgCyan,
-	FgHiWhite:   FgWhite,
+var hiToNonHiMap = map[text.Color]text.Color{
+	text.FgHiBlack:   text.FgBlack,
+	text.FgHiRed:     text.FgRed,
+	text.FgHiGreen:   text.FgGreen,
+	text.FgHiYellow:  text.FgYellow,
+	text.FgHiBlue:    text.FgBlue,
+	text.FgHiMagenta: text.FgMagenta,
+	text.FgHiCyan:    text.FgCyan,
+	text.FgHiWhite:   text.FgWhite,
 }
