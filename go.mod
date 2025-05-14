@@ -1,6 +1,6 @@
 module github.com/ublue-os/uupd
 
-go 1.23.7
+go 1.23.1
 
 require (
 	github.com/godbus/dbus/v5 v5.1.0
