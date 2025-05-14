@@ -75,7 +75,8 @@ func NewProgressWriter() progress.Writer {
 		cmd := exec.Command("busctl", fmt.Sprintf("--machine=%d@", targetUser), "--user", "--json=short", "call", "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.Settings", "ReadOne", "ss", "org.freedesktop.appearance", "accent-color")
 		out, err := session.RunLog(nil, slog.LevelDebug, cmd)
 		if err != nil {
-			slog.Error("Failed to get accent color", slog.Any("err", err))
+			// Erroring out here would be kinda silly because sometimes the xdg portal just doesn't exist on certain desktops, uncomment line below for debugging
+			// slog.Error("Failed to get accent color", slog.Any("err", err))
 			return pw
 		}
 		var accent Accent
