@@ -1,13 +1,18 @@
 package percent
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
+	"os"
+	"os/exec"
+	"strconv"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/jedib0t/go-pretty/v6/text"
+	"github.com/ublue-os/uupd/pkg/session"
 )
 
 type Incrementer struct {
@@ -51,6 +56,50 @@ func NewProgressWriter() progress.Writer {
 	pw.Style().Options.PercentFormat = "%4.1f%%"
 	pw.Style().Colors = CuteColors
 	pw.SetAutoStop(false)
+
+	var targetUser int
+	baseUser, exists := os.LookupEnv("SUDO_UID")
+	if !exists || baseUser == "" {
+		targetUser = 0
+	} else {
+		var err error
+		targetUser, err = strconv.Atoi(baseUser)
+		if err != nil {
+			slog.Error("Failed parsing provided user as UID", slog.String("user_value", baseUser))
+			return pw
+		}
+	}
+	if targetUser != 0 {
+		var accentColorSet progress.StyleColors
+		// Get accent color: https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Settings.html
+		cmd := exec.Command("busctl", fmt.Sprintf("--machine=%d@", targetUser), "--user", "--json=short", "call", "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop", "org.freedesktop.portal.Settings", "ReadOne", "ss", "org.freedesktop.appearance", "accent-color")
+		out, err := session.RunLog(nil, slog.LevelDebug, cmd)
+		if err != nil {
+			// Erroring out here would be kinda silly because sometimes the xdg portal just doesn't exist on certain desktops, uncomment line below for debugging
+			// slog.Error("Failed to get accent color", slog.Any("err", err))
+			return pw
+		}
+		var accent Accent
+		err = json.Unmarshal(out, &accent)
+		if err != nil {
+			slog.Error("Failed to unmarshal accent color data", slog.String("raw_data", string(out)), slog.Any("error", err))
+			return pw
+		}
+		if len(accent.Data) == 0 {
+			slog.Error("Accent data is empty")
+			return pw
+		}
+		rawColor := accent.Data[0].Data
+		highlightColor, lowColor := findClosestColor(rawColor)
+		validHighlightColor := text.Colors{highlightColor}
+		validLowColor := text.Colors{lowColor}
+		accentColorSet.Percent = validHighlightColor
+		accentColorSet.Tracker = validHighlightColor
+		accentColorSet.Time = validLowColor
+		accentColorSet.Value = validLowColor
+		accentColorSet.Speed = validLowColor
+		pw.Style().Colors = accentColorSet
+	}
 	return pw
 }
 
@@ -75,7 +124,7 @@ func (it *Incrementer) ReportStatusChange(title string, description string) {
 	// OSC escape sequence to up the overall percentage
 	fmt.Printf("\033]9;4;1;%d\a", int(percentage))
 
-	finalMessage := fmt.Sprintf("Updating %s (%s) Step: [%d/%d]", title, description, it.CurrentStep(), it.MaxIncrements+1)
+	finalMessage := fmt.Sprintf("Updating %s (%s) Step: [%d/%d]", title, description, it.CurrentStep()+1, it.MaxIncrements+1)
 
 	it.ProgressWriter.SetMessageLength(len(finalMessage))
 	it.PTracker.Tracker.UpdateMessage(finalMessage)
@@ -140,7 +189,7 @@ func (it *Incrementer) IncrementSection(err error) {
 }
 
 func (it *Incrementer) OverallPercent() float64 {
-	steps := ((float64(it.CurrentStep()) + it.PTracker.Progress/100.0) / float64(it.MaxIncrements+1)) * 100.0
+	steps := ((float64(it.CurrentStep()+1) + it.PTracker.Progress/100.0) / float64(it.MaxIncrements+1)) * 100.0
 	return math.Round(steps)
 }
 
