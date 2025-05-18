@@ -40,7 +40,7 @@ func TestLockAcquired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed even opening the file, %v", err)
 	}
-	defer file2.Close()
+	defer file2.Close() //nolint:errcheck
 	err = filelock.AcquireLock(file2, defaultTimeout)
 	if err == nil {
 		t.Fatalf("Expected failing to lock file, %v", err)
