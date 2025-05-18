@@ -51,7 +51,7 @@ func RunUID(logger *slog.Logger, level slog.Level, uid int, command []string, en
 	user, err := osUser.LookupId(fmt.Sprintf("%d", uid))
 
 	if err != nil {
-		return []byte{}, fmt.Errorf("Failed to lookup UID: %d, returned error: %v", uid, err)
+		return []byte{}, fmt.Errorf("failed to lookup UID: %d, returned error: %v", uid, err)
 	}
 	cmdArgs := []string{
 		"/usr/bin/pkexec",
@@ -87,7 +87,7 @@ func ListUsers() ([]User, error) {
 	if err != nil {
 		return []User{}, fmt.Errorf("failed to connect to system bus: %v", err)
 	}
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck
 
 	var resp [][]dbus.Variant
 	object := conn.Object("org.freedesktop.login1", "/org/freedesktop/login1")

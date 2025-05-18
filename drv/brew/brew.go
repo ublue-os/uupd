@@ -19,11 +19,11 @@ func (up BrewUpdater) GetBrewUID() (int, error) {
 	}
 
 	if !inf.IsDir() {
-		return -1, fmt.Errorf("Brew prefix: %v, is not a dir.", up.BrewPrefix)
+		return -1, fmt.Errorf("brew prefix: %v, is not a dir", up.BrewPrefix)
 	}
 	stat, ok := inf.Sys().(*syscall.Stat_t)
 	if !ok {
-		return -1, fmt.Errorf("Unable to retriev UID info for %v", up.BrewPrefix)
+		return -1, fmt.Errorf("unable to retriev UID info for %v", up.BrewPrefix)
 	}
 	return int(stat.Uid), nil
 }

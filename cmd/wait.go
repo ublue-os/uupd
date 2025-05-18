@@ -23,10 +23,10 @@ func Wait(cmd *cobra.Command, args []string) {
 		}
 
 		if filelock.IsFileLocked(file) {
-			file.Close()
+			file.Close() //nolint:errcheck
 			log.Printf("Waiting for lockfile: %s", lockFilePath)
 		} else {
-			file.Close()
+			file.Close() //nolint:errcheck
 			break
 		}
 	}

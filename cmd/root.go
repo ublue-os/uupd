@@ -76,7 +76,7 @@ func Execute() {
 }
 
 func initLogging(cmd *cobra.Command, args []string) error {
-	var logWriter *os.File = os.Stdout
+	logWriter := os.Stdout
 	if fLogFile != "-" {
 		abs, err := filepath.Abs(path.Clean(fLogFile))
 		if err != nil {
