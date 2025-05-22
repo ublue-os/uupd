@@ -117,10 +117,13 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 	}
 	cmd = exec.Command(up.SkopeoPath, "inspect", ref)
 	out, err = cmd.CombinedOutput()
+	if err != nil {
+		return true, fmt.Errorf("running skopeo inspect failed: %v", err)
+	}
 	var inspect skopeoInspect
 	err = json.Unmarshal(out, &inspect)
 	if err != nil {
-		return true, fmt.Errorf("Couldn't unmarshal skopeo inspect: %v", err)
+		return true, fmt.Errorf("couldn't unmarshal skopeo inspect: %v", err)
 	}
 
 	updateNecessary := inspect.Digest != status.Deployments[0].Digest

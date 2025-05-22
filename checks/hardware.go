@@ -41,7 +41,7 @@ func battery(conn *dbus.Conn) Info {
 	if !ok {
 		return Info{
 			name,
-			fmt.Errorf("Unable to determine if this computer is running on battery with: %v", variant),
+			fmt.Errorf("unable to determine if this computer is running on battery with: %v", variant),
 		}
 	}
 	// Not running on battery, skip this test
@@ -245,7 +245,7 @@ func RunHwChecks() error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck
 	checkInfo := Hardware(conn)
 	for _, info := range checkInfo {
 		if info.Err != nil {

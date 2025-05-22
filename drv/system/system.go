@@ -226,7 +226,7 @@ func BootcCompatible(binaryPath string) bool {
 
 func InitializeSystemDriver(initConfiguration UpdaterInitConfiguration) (SystemUpdateDriver, DriverConfiguration, bool, error) {
 
-	rpmOstreeUpdater, err := rpmostree.RpmOstreeUpdater{}.New(initConfiguration)
+	rpmOstreeUpdater, _ := rpmostree.RpmOstreeUpdater{}.New(initConfiguration)
 
 	systemUpdater, err := SystemUpdater{}.New(initConfiguration)
 
