@@ -2,6 +2,8 @@ package checks
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/godbus/dbus/v5"
@@ -10,9 +12,35 @@ import (
 	"github.com/shirou/gopsutil/v4/net"
 )
 
+const (
+	envBatMinPercent     string = "UUPD_BATTERY_MIN_PERCENT"
+	envNetMaxBytes       string = "UUPD_NETWORK_MAX_BYTES"
+	envMemMaxPercent     string = "UUPD_MEMORY_MAX_PERCENT"
+	envCpuMaxLoadPercent string = "UUPD_CPU_MAX_LOAD_PERCENT"
+
+	batMinPercent     int = 20
+	netMaxBytes       int = 500000
+	memMaxPercent     int = 90
+	cpuMaxLoadPercent int = 50
+)
+
 type Info struct {
 	Name string
 	Err  error
+}
+
+func envOrFallbackInt(key string, fallback int) int {
+	valStr, exists := os.LookupEnv(key)
+	if !exists {
+		return fallback
+	}
+
+	valInt, err := strconv.Atoi(valStr)
+	if err != nil {
+		return fallback
+	}
+
+	return valInt
 }
 
 func Hardware(conn *dbus.Conn) []Info {
@@ -67,10 +95,11 @@ func battery(conn *dbus.Conn) Info {
 			fmt.Errorf("unable to get battery percent from: %v", variant),
 		}
 	}
-	if batteryPercent < 20 {
+	min := envOrFallbackInt(envBatMinPercent, batMinPercent)
+	if batteryPercent < float64(min) {
 		return Info{
 			name,
-			fmt.Errorf("battery percent below 20, detected battery percent: %v", batteryPercent),
+			fmt.Errorf("battery percent below %d, detected battery percent: %v", min, batteryPercent),
 		}
 	}
 
@@ -181,10 +210,11 @@ func network(conn *dbus.Conn) Info {
 	}
 	netAvg := total / 5
 
-	if netAvg > 500000 {
+	max := envOrFallbackInt(envNetMaxBytes, netMaxBytes)
+	if netAvg > uint64(max) {
 		return Info{
 			name,
-			fmt.Errorf("network is busy, with %v bytes recieved", netAvg),
+			fmt.Errorf("network is busy, with above %d bytes recieved (%v)", max, netAvg),
 		}
 	}
 
@@ -204,10 +234,11 @@ func memory() Info {
 			err,
 		}
 	}
-	if v.UsedPercent > 90.0 {
+	max := envOrFallbackInt(envMemMaxPercent, memMaxPercent)
+	if v.UsedPercent > float64(max) {
 		return Info{
 			name,
-			fmt.Errorf("current memory usage above 90 percent: %v", v.UsedPercent),
+			fmt.Errorf("current memory usage above %d percent: %v", max, v.UsedPercent),
 		}
 	}
 	return Info{
@@ -226,10 +257,11 @@ func cpu() Info {
 		}
 	}
 	// Check if the CPU load in the 5 minutes was greater than 50%
-	if avg.Load5 > 50.0 {
+	max := envOrFallbackInt(envCpuMaxLoadPercent, cpuMaxLoadPercent)
+	if avg.Load5 > float64(max) {
 		return Info{
 			name,
-			fmt.Errorf("CPU load above 50 percent: %v", avg.Load5),
+			fmt.Errorf("CPU load above %d percent: %v", max, avg.Load5),
 		}
 	}
 

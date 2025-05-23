@@ -45,6 +45,17 @@ $ sudo uupd
 $ uupd --help
 ```
 
+# Configuration
+
+Automatic updates are ran from the systemd service, to edit the service file you can run `sudo systemctl edit uupd.service` from the cmdline and use environment variables:
+
+```ini
+Environment="UUPD_BATTERY_MIN_PERCENT=20" # Configures the battery check minimum percentage allows
+Environment="UUPD_NETWORK_MAX_BYTES=500000" # Configures the maximum amount of bytes received allowed before check fails
+Environment="UUPD_MEMORY_MAX_PERCENT=90" # Maximum memory usage allowed before check fails
+Environment="UUPD_CPU_MAX_LOAD_PERCENT=50" # Maximum cpu load allowed before check fails
+```
+
 # Troubleshooting
 
 You can check the uupd logs by running this command:

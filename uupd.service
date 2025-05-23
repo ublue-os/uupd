@@ -3,5 +3,10 @@ Description=Universal Blue Update Oneshot Service
 
 [Service]
 Type=oneshot
+# Configure the checks using env vars
+#Environment="UUPD_BATTERY_MIN_PERCENT=20"
+#Environment="UUPD_NETWORK_MAX_BYTES=500000"
+#Environment="UUPD_MEMORY_MAX_PERCENT=90"
+#Environment="UUPD_CPU_MAX_LOAD_PERCENT=50"
 ExecStart=/usr/bin/uupd --log-level debug --json --hw-check
 SELinuxContext=system_u:unconfined_r:unconfined_t:s0
