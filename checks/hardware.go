@@ -214,7 +214,7 @@ func network(conn *dbus.Conn) Info {
 	if netAvg > uint64(max) {
 		return Info{
 			name,
-			fmt.Errorf("network is busy, with above %d bytes recieved (%v)", max, netAvg),
+			fmt.Errorf("network is busy, with above %d bytes received (%v)", max, netAvg),
 		}
 	}
 
