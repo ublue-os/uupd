@@ -2,6 +2,7 @@ package checks
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"time"
@@ -37,6 +38,11 @@ func envOrFallbackInt(key string, fallback int) int {
 
 	valInt, err := strconv.Atoi(valStr)
 	if err != nil {
+		slog.Default().Warn("Failed to parse environment variable as int",
+			"key", key,
+			"value", valStr,
+			"error", err,
+		)
 		return fallback
 	}
 
