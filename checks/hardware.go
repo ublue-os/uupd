@@ -20,7 +20,7 @@ const (
 	envCpuMaxLoadPercent string = "UUPD_CPU_MAX_LOAD_PERCENT"
 
 	batMinPercent     int = 20
-	netMaxBytes       int = 500000
+	netMaxBytes       int = 700000
 	memMaxPercent     int = 90
 	cpuMaxLoadPercent int = 50
 )
