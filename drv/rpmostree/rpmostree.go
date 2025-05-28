@@ -19,9 +19,13 @@ import (
 type rpmOstreeStatus struct {
 	Deployments []struct {
 		Timestamp int64  `json:"timestamp"`
-		Digest    string `json:"ostree.manifest-digest"`
+		Meta    BaseCommitMeta `json:"base-commit-meta"`
 		Reference string `json:"container-image-reference"`
 	} `json:"deployments"`
+}
+
+type BaseCommitMeta struct {
+	Digest string `json:"ostree.manifest-digest"`
 }
 
 type skopeoInspect struct {
@@ -126,7 +130,7 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 		return true, fmt.Errorf("couldn't unmarshal skopeo inspect: %v", err)
 	}
 
-	updateNecessary := inspect.Digest != status.Deployments[0].Digest
+	updateNecessary := inspect.Digest != status.Deployments[0].Meta.Digest
 	up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", updateNecessary))
 	return updateNecessary, nil
 }
