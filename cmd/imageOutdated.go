@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log/slog"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/drv/generic"
@@ -26,5 +27,8 @@ func ImageOutdated(cmd *cobra.Command, args []string) {
 		slog.Error("Failed checking if system is out of date")
 	}
 
-	println(systemOutdated)
+	slog.Info("Outdated Check", slog.Bool("image_outdated", systemOutdated))
+	if systemOutdated {
+		os.Exit(77)
+	}
 }
