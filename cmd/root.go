@@ -43,7 +43,7 @@ var (
 
 	updateCheckCmd = &cobra.Command{
 		Use:    "update-check",
-		Short:  "Check for updates to the booted image",
+		Short:  "Check for updates to the booted image, returns exit code 77 if update is not available",
 		PreRun: assertRoot,
 		Run:    UpdateCheck,
 	}
@@ -57,7 +57,7 @@ var (
 
 	imageOutdatedCmd = &cobra.Command{
 		Use:    "is-img-outdated",
-		Short:  "Print 'true' or 'false' based on if the current booted image is over 1 month old",
+		Short:  "Checks if the current booted image is over 1 month old, returns exit code 77 if true.",
 		PreRun: assertRoot,
 		Run:    ImageOutdated,
 	}
