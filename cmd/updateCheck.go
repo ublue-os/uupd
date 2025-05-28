@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log/slog"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/drv/generic"
@@ -29,5 +30,6 @@ func UpdateCheck(cmd *cobra.Command, args []string) {
 		slog.Info("Update Available")
 	} else {
 		slog.Info("No updates available")
+		os.Exit(77)
 	}
 }
