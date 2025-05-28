@@ -28,7 +28,7 @@ func ImageOutdated(cmd *cobra.Command, args []string) {
 	}
 
 	slog.Info("Outdated Check", slog.Bool("image_outdated", systemOutdated))
-	if !systemOutdated {
+	if systemOutdated {
 		os.Exit(77)
 	}
 }
