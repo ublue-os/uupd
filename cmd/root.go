@@ -120,6 +120,7 @@ func init() {
 	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 	rootCmd.Flags().Bool("disable-progress", !isTerminal, "Disable the GUI progress indicator, automatically disabled when loglevel is debug or in JSON")
 	rootCmd.Flags().Bool("apply", false, "Reboot if there's an update to the image")
+	rootCmd.Flags().BoolP("ignore-metered-connection", "m", false, "Run update on metered connection")
 	rootCmd.PersistentFlags().BoolVar(&fLogJson, "json", false, "Print logs as json (used for testing)")
 	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
 	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")
