@@ -119,3 +119,32 @@ func Notify(users []User, summary string, body string, urgency string) error {
 	}
 	return nil
 }
+
+func CheckMeteredConn() (bool, error) {
+	conn, err := dbus.SystemBus()
+	if err != nil {
+		return false, fmt.Errorf("failed to connect to system bus: %v", err)
+	}
+	bo := conn.Object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
+	variant, err := bo.GetProperty("org.freedesktop.NetworkManager.Metered")
+	if err != nil {
+		return false, fmt.Errorf("There was an error connecting to the NetworkManager interface")
+	}
+	var status bool
+	switch variant.Value() {
+	case uint32(0): //NM_METERED_UNKNOWN
+		status = false
+	case uint32(1): //NM_METERED_YES
+		status = true
+	case uint32(2): //NM_METERED_NO
+		status = false
+	case uint32(3): //NM_METERED_GUESS_YES
+		status = true
+	case uint32(4): //NM_METERED_GUESS_NO
+		status = false
+	default:
+		status = false
+	}
+
+	return status, err
+}

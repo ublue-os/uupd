@@ -21,6 +21,22 @@ import (
 )
 
 func Update(cmd *cobra.Command, args []string) {
+
+	meteredIgnore, err := cmd.Flags().GetBool("ignore-metered-connection")
+	if err != nil {
+		slog.Error("Failed to get ignore-metered-connection flag", "error", err)
+		return
+	}
+
+	meteredConn, err := session.CheckMeteredConn()
+	if err != nil {
+		slog.Error("There was an error getting Metered Network status", slog.Any("error", err))
+	}
+	if meteredConn == true && meteredIgnore == false {
+		slog.Error("Metered Network Connection detected. Update will be cancelled. To update on Metered Connections, run with --ignore-metered-connection flag")
+		return
+	}
+
 	lockfile, err := filelock.OpenLockfile(filelock.GetDefaultLockfile())
 	if err != nil {
 		slog.Error("Failed creating and opening lockfile. Is uupd already running?", slog.Any("error", err))
