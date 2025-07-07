@@ -1,5 +1,7 @@
 [Unit]
 Description=Universal Blue Update Oneshot Service
+StartLimitBurst=3
+StartLimitIntervalSec=600
 
 [Service]
 Type=oneshot
@@ -14,7 +16,5 @@ ExecStart=/usr/bin/uupd --log-level debug --json --hw-check
 # Restart on failure for edge cases like waking from suspend and wifi not connecting immediately
 Restart=on-failure
 RestartSec=60s
-StartLimitIntervalSec=600
-StartLimitBurst=3
 # Set SELinux context unconfined because bootc requires some special perms for relabeling (install_t????)
 SELinuxContext=system_u:unconfined_r:unconfined_t:s0
