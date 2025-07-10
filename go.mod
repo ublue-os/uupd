@@ -5,14 +5,14 @@ go 1.23.1
 require (
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/jedib0t/go-pretty/v6 v6.6.7
-	github.com/shirou/gopsutil/v4 v4.25.4
+	github.com/shirou/gopsutil/v4 v4.25.6
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/term v0.32.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/ebitengine/purego v0.8.2 // indirect
+	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
