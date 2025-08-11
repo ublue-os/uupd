@@ -37,7 +37,7 @@ jobs:
     steps:
       # Checkout push-to-registry action GitHub repository
       - name: Checkout Push to Registry action
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Build image using Buildah action
       - name: Build package using containerized build environment
