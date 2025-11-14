@@ -3,7 +3,7 @@ module github.com/ublue-os/uupd
 go 1.23.1
 
 require (
-	github.com/godbus/dbus/v5 v5.1.0
+	github.com/godbus/dbus/v5 v5.2.0
 	github.com/jedib0t/go-pretty/v6 v6.6.8
 	github.com/shirou/gopsutil/v4 v4.25.7
 	github.com/spf13/cobra v1.9.1
