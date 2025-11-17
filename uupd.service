@@ -1,3 +1,4 @@
+# DO NOT CHANGE ANYTHING BELOW UNLESS YOU KNOW WHAT YOU ARE DOING
 [Unit]
 Description=Universal Blue Update Oneshot Service
 StartLimitBurst=3
@@ -5,13 +6,6 @@ StartLimitIntervalSec=600
 
 [Service]
 Type=oneshot
-# Configure the checks using env vars
-#Environment="UUPD_BATTERY_MIN_PERCENT=20"
-#Environment="UUPD_NETWORK_MAX_BYTES=500000"
-#Environment="UUPD_MEMORY_MAX_PERCENT=90"
-#Environment="UUPD_CPU_MAX_LOAD_PERCENT=50"
-
-# DO NOT CHANGE ANYTHING BELOW UNLESS YOU KNOW WHAT YOU ARE DOING
 ExecStart=/usr/bin/uupd --log-level debug --json --hw-check
 # Restart on failure for edge cases like waking from suspend and wifi not connecting immediately
 Restart=on-failure

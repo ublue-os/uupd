@@ -1,0 +1,35 @@
+# uupd configuration file
+# System-wide configuration: /etc/uupd/uupd.yml
+# User overrides: ~/.config/uupd/uupd.yml
+
+# Logging configuration
+logging:
+  level: info
+  json: false
+  quiet: false
+  file: "-"
+
+# Hardware checks
+checks:
+  hardware:
+    enable: false
+    battery-min-percent: 20
+    network-max-bytes: 700000
+    memory-max-percent: 90
+    cpu-max-load-percent: 50
+
+# Update modules
+modules:
+  system:
+    disable: false
+  flatpak:
+    disable: false
+  distrobox:
+    disable: false
+  brew:
+    disable: false
+
+# Update options
+update:
+  force: false
+  verbose: false

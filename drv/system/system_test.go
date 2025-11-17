@@ -5,16 +5,18 @@ import (
 
 	"github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/system"
+	"github.com/ublue-os/uupd/pkg/config"
 	appLogging "github.com/ublue-os/uupd/pkg/logging"
 )
 
 func InitBaseConfig() system.SystemUpdater {
 	var initConfiguration = generic.UpdaterInitConfiguration{
-		DryRun:      true,
-		Ci:          false,
-		Verbose:     false,
-		Environment: nil,
-		Logger:      appLogging.NewMuteLogger(),
+		DryRun:        true,
+		Ci:            false,
+		Verbose:       false,
+		Environment:   nil,
+		Logger:        appLogging.NewMuteLogger(),
+		ModulesConfig: config.GetModules(),
 	}
 	driv, _ := system.SystemUpdater{}.New(initConfiguration)
 	return driv

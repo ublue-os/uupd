@@ -93,8 +93,8 @@ func (up RpmOstreeUpdater) New(config UpdaterInitConfiguration) (RpmOstreeUpdate
 		Environment: config.Environment,
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
-	up.BinaryPath = EnvOrFallback(up.Config.Environment, "UUPD_RPMOSTREE_BINARY", "/usr/bin/rpm-ostree")
-	up.SkopeoPath = EnvOrFallback(up.Config.Environment, "UUPD_SKOPEO_BINARY", "/usr/bin/skopeo")
+	up.BinaryPath = config.ModulesConfig.System.RpmOstreeBinary
+	up.SkopeoPath = config.ModulesConfig.System.SkopeoBinary
 
 	return up, nil
 }

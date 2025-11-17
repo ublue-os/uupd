@@ -23,7 +23,7 @@ go.work.sum
 
 # env file
 .env
-uupd
+/uupd
 ublue-upd
 output/*
 *.key

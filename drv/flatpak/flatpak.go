@@ -42,7 +42,7 @@ func (up FlatpakUpdater) New(config UpdaterInitConfiguration) (FlatpakUpdater, e
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.usersEnabled = false
 
-	up.binaryPath = EnvOrFallback(up.Config.Environment, "UUPD_FLATPAK_BINARY", "/usr/bin/flatpak")
+	up.binaryPath = config.ModulesConfig.Flatpak.FlatpakBinary
 
 	return up, nil
 }

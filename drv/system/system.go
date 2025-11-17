@@ -189,7 +189,7 @@ func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, err
 		Environment: config.Environment,
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
-	up.BinaryPath = EnvOrFallback(config.Environment, "UUPD_BOOTC_BINARY", "/usr/bin/bootc")
+	up.BinaryPath = config.ModulesConfig.System.BootcBinary
 
 	return up, nil
 }

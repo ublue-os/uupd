@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/system"
+	"github.com/ublue-os/uupd/pkg/config"
 )
 
 func ImageOutdated(cmd *cobra.Command, args []string) {
@@ -14,6 +15,7 @@ func ImageOutdated(cmd *cobra.Command, args []string) {
 	initConfiguration.Ci = false
 	initConfiguration.DryRun = false
 	initConfiguration.Verbose = false
+	initConfiguration.ModulesConfig = config.GetModules()
 
 	mainSystemDriver, _, _, err := system.InitializeSystemDriver(*initConfiguration)
 	if err != nil {

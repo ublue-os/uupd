@@ -42,7 +42,7 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.usersEnabled = false
 
-	up.binaryPath = EnvOrFallback(up.Config.Environment, "UUPD_DISTROBOX_BINARY", "/usr/bin/distrobox")
+	up.binaryPath = config.ModulesConfig.Distrobox.DistroboxBinary
 
 	if up.Config.DryRun {
 		return up, nil

@@ -47,14 +47,38 @@ $ uupd --help
 
 # Configuration
 
-Automatic updates are ran from the systemd service, to edit the service file you can run `sudo systemctl edit uupd.service` from the cmdline and use environment variables:
+uupd can be configured using configuration files or environment variables.
 
-```ini
-Environment="UUPD_BATTERY_MIN_PERCENT=20" # Sets the minimum battery percentage required for the update process
-Environment="UUPD_NETWORK_MAX_BYTES=500000" # Configures the maximum amount of bytes received allowed before check fails
-Environment="UUPD_MEMORY_MAX_PERCENT=90" # Maximum memory usage allowed before check fails
-Environment="UUPD_CPU_MAX_LOAD_PERCENT=50" # Maximum cpu load allowed before check fails
+## Configuration Files
+
+Configuration files are loaded in the following order (highest precedence last):
+
+1. `/etc/uupd/uupd.yml` - System-wide configuration
+2. `~/.config/uupd/uupd.yml` - User-specific configuration
+
+See `etc/uupd/uupd.yml` in the repository for a complete configuration example.
+
+## Environment Variables
+
+Environment variables can be used with the `UUPD_` prefix. Nested configuration keys use underscores as separators:
+
+```bash
+UUPD_LOGGING_LEVEL=debug
+UUPD_CHECKS_HARDWARE_ENABLE=true
+UUPD_CHECKS_HARDWARE_BATTERY_MIN_PERCENT=30
+UUPD_MODULES_SYSTEM_DISABLE=true
+UUPD_UPDATE_FORCE=true
 ```
+
+## Configuration Precedence
+
+Configuration is loaded with the following precedence (highest to lowest):
+
+1. CLI flags
+2. Environment variables (UUPD_*)
+3. User configuration file (~/.config/uupd/uupd.yml)
+4. System configuration file (/etc/uupd/uupd.yml)
+5. Default values
 
 # Troubleshooting
 

@@ -61,13 +61,14 @@ container-test:
 	#!/usr/bin/env bash
 	set -eou pipefail
 
-	podman run -d --replace --name uupd-test --security-opt label=disable --device /dev/fuse:rw --privileged --systemd true test-container 
+	podman run -d --replace --name uupd-test --security-opt label=disable --device /dev/fuse:rw --privileged --systemd true test-container
 	while [[ "$(podman exec uupd-test systemctl is-system-running)" != "running" && "$(podman exec uupd-test systemctl is-system-running)" != "degraded" ]]; do
 		echo "Waiting for systemd to finish booting..."
 		sleep 1
 	done
 	podman exec -t uupd-test systemd-run --machine 0@ --pipe --quiet /usr/bin/uupd --dry-run
 	podman rm -f uupd-test
+
 clean:
 	rm -rf "$UBLUE_ROOT"
 

@@ -6,17 +6,19 @@ import (
 
 	"github.com/ublue-os/uupd/drv/flatpak"
 	"github.com/ublue-os/uupd/drv/generic"
+	"github.com/ublue-os/uupd/pkg/config"
 	appLogging "github.com/ublue-os/uupd/pkg/logging"
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
 func InitBaseConfig() flatpak.FlatpakUpdater {
 	var initConfiguration = generic.UpdaterInitConfiguration{
-		DryRun:      true,
-		Ci:          false,
-		Verbose:     false,
-		Environment: nil,
-		Logger:      appLogging.NewMuteLogger(),
+		DryRun:        true,
+		Ci:            false,
+		Verbose:       false,
+		Environment:   nil,
+		Logger:        appLogging.NewMuteLogger(),
+		ModulesConfig: config.GetModules(),
 	}
 	driv, _ := flatpak.FlatpakUpdater{}.New(initConfiguration)
 	return driv

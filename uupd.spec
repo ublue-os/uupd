@@ -37,6 +37,7 @@ install -Dpm 0755 %{name} %{buildroot}%{_bindir}/%{name}
 install -Dpm 644 %{name}.service %{buildroot}%{_unitdir}/%{name}.service
 install -Dpm 644 %{name}.timer %{buildroot}%{_unitdir}/%{name}.timer
 install -Dpm 644 %{name}.rules %{buildroot}%{_sysconfdir}/polkit-1/rules.d/%{name}.rules
+install -Dpm 644 etc/uupd/uupd.yml %{buildroot}%{_sysconfdir}/uupd/uupd.yml
 
 %check
 go test -v ./...
@@ -52,6 +53,7 @@ go test -v ./...
 %{_unitdir}/%{name}.service
 %{_unitdir}/%{name}.timer
 %config(noreplace) %{_sysconfdir}/polkit-1/rules.d/%{name}.rules
+%config(noreplace) %{_sysconfdir}/uupd/uupd.yml
 
 %changelog
 %autochangelog

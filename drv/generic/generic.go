@@ -5,17 +5,19 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
 type EnvironmentMap map[string]string
 
 type UpdaterInitConfiguration struct {
-	DryRun      bool
-	Ci          bool
-	Verbose     bool
-	Environment EnvironmentMap
-	Logger      *slog.Logger
+	DryRun        bool
+	Ci            bool
+	Verbose       bool
+	Environment   EnvironmentMap
+	Logger        *slog.Logger
+	ModulesConfig *config.ModulesConfig
 }
 
 func EnvOrFallback(environment EnvironmentMap, key string, fallback string) string {

@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	appLogging "github.com/ublue-os/uupd/pkg/logging"
+	"github.com/ublue-os/uupd/pkg/config"
 	"golang.org/x/term"
 )
 
@@ -62,6 +64,12 @@ var (
 		Run:    ImageOutdated,
 	}
 
+	configDumpCmd = &cobra.Command{
+		Use:   "config-dump",
+		Short: "Display current configuration as YAML",
+		Run:   ConfigDump,
+	}
+
 	fLogFile   string
 	fLogLevel  string
 	fNoLogging bool
@@ -104,10 +112,18 @@ func initLogging(cmd *cobra.Command, args []string) error {
 }
 
 func init() {
+	cobra.OnInitialize(func() {
+		if err := config.InitConfig(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		}
+	})
+
 	rootCmd.AddCommand(waitCmd)
 	rootCmd.AddCommand(updateCheckCmd)
 	rootCmd.AddCommand(hardwareCheckCmd)
 	rootCmd.AddCommand(imageOutdatedCmd)
+	rootCmd.AddCommand(configDumpCmd)
+
 	rootCmd.Flags().Bool("disable-module-system", false, "Disable the System module")
 	rootCmd.Flags().Bool("disable-module-flatpak", false, "Disable the Flatpak module")
 	rootCmd.Flags().Bool("disable-module-distrobox", false, "Disable the Distrobox update module")
@@ -120,8 +136,21 @@ func init() {
 	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 	rootCmd.Flags().Bool("disable-progress", !isTerminal, "Disable the GUI progress indicator, automatically disabled when loglevel is debug or in JSON")
 	rootCmd.Flags().Bool("apply", false, "Reboot if there's an update to the image")
+
 	rootCmd.PersistentFlags().BoolVar(&fLogJson, "json", false, "Print logs as json (used for testing)")
 	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
 	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")
 	rootCmd.PersistentFlags().BoolVar(&fNoLogging, "quiet", false, "Make logs quiet")
+
+	_ = viper.BindPFlag("modules.system.disable", rootCmd.Flags().Lookup("disable-module-system"))
+	_ = viper.BindPFlag("modules.flatpak.disable", rootCmd.Flags().Lookup("disable-module-flatpak"))
+	_ = viper.BindPFlag("modules.distrobox.disable", rootCmd.Flags().Lookup("disable-module-distrobox"))
+	_ = viper.BindPFlag("modules.brew.disable", rootCmd.Flags().Lookup("disable-module-brew"))
+	_ = viper.BindPFlag("checks.hardware.enable", rootCmd.Flags().Lookup("hw-check"))
+	_ = viper.BindPFlag("update.force", rootCmd.Flags().Lookup("force"))
+	_ = viper.BindPFlag("update.verbose", rootCmd.Flags().Lookup("verbose"))
+	_ = viper.BindPFlag("logging.json", rootCmd.PersistentFlags().Lookup("json"))
+	_ = viper.BindPFlag("logging.file", rootCmd.PersistentFlags().Lookup("log-file"))
+	_ = viper.BindPFlag("logging.level", rootCmd.PersistentFlags().Lookup("log-level"))
+	_ = viper.BindPFlag("logging.quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 }
