@@ -12,11 +12,10 @@ import (
 // Writer.AppendTracker() method. When the task that is being done has progress,
 // increment the value using the Tracker.Increment(value) method.
 type Tracker struct {
-	// Message should contain a short description of the "task"; please note
-	// that this should NOT be updated in the middle of progress - you should
-	// instead use UpdateMessage() to do this safely without hitting any race
-	// conditions
-	Message string
+	// AutoStopDisabled prevents the tracker from marking itself as done when
+	// the value goes beyond the total (if set). Note that this means that a
+	// manual call to MarkAsDone or MarkAsErrored is expected.
+	AutoStopDisabled bool
 	// DeferStart prevents the tracker from starting immediately when appended.
 	// It will be rendered but remain dormant until Start, Increment,
 	// IncrementWithError or SetValue is called.
@@ -24,6 +23,15 @@ type Tracker struct {
 	// ExpectedDuration tells how long this task is expected to take; and will
 	// be used in calculation of the ETA value
 	ExpectedDuration time.Duration
+	// Index specifies the explicit order for this tracker. When SortByIndex
+	// is used, trackers are sorted by this value regardless of completion status.
+	// Lower values appear first, with 0 being the first index.
+	Index uint64
+	// Message should contain a short description of the "task"; please note
+	// that this should NOT be updated in the middle of progress - you should
+	// instead use UpdateMessage() to do this safely without hitting any race
+	// conditions
+	Message string
 	// RemoveOnCompletion tells the Progress Bar to remove this tracker when
 	// it is done, instead of rendering a "completed" line
 	RemoveOnCompletion bool
@@ -176,6 +184,13 @@ func (t *Tracker) SetValue(value int64) {
 	t.mutex.Unlock()
 }
 
+// Start starts the tracking for the case when DeferStart=false.
+func (t *Tracker) Start() {
+	if t.timeStart.IsZero() {
+		t.start()
+	}
+}
+
 // UpdateMessage updates the message string.
 func (t *Tracker) UpdateMessage(msg string) {
 	t.mutex.Lock()
@@ -200,36 +215,22 @@ func (t *Tracker) Value() int64 {
 	return t.value
 }
 
-func (t *Tracker) message() string {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-	return t.Message
-}
-
-func (t *Tracker) valueAndTotal() (int64, int64) {
-	t.mutex.RLock()
-	value := t.value
-	total := t.Total
-	t.mutex.RUnlock()
-	return value, total
-}
-
 func (t *Tracker) incrementWithoutLock(value int64) {
 	if !t.done {
 		if t.timeStart.IsZero() {
 			t.startWithoutLock()
 		}
 		t.value += value
-		if t.Total > 0 && t.value >= t.Total {
+		if !t.AutoStopDisabled && t.Total > 0 && t.value >= t.Total {
 			t.stop()
 		}
 	}
 }
 
-func (t *Tracker) Start() {
-	if t.timeStart.IsZero() {
-		t.start()
-	}
+func (t *Tracker) message() string {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return t.Message
 }
 
 func (t *Tracker) start() {
@@ -254,4 +255,29 @@ func (t *Tracker) stop() {
 	if t.value > t.Total {
 		t.Total = t.value
 	}
+}
+
+func (t *Tracker) valueAndTotal() (int64, int64) {
+	t.mutex.RLock()
+	value := t.value
+	total := t.Total
+	t.mutex.RUnlock()
+	return value, total
+}
+
+// timeStartAndStop returns the start and stop times safely.
+func (t *Tracker) timeStartAndStop() (time.Time, time.Time) {
+	t.mutex.RLock()
+	timeStart := t.timeStart
+	timeStop := t.timeStop
+	t.mutex.RUnlock()
+	return timeStart, timeStop
+}
+
+// timeStartValue returns the start time safely.
+func (t *Tracker) timeStartValue() time.Time {
+	t.mutex.RLock()
+	timeStart := t.timeStart
+	t.mutex.RUnlock()
+	return timeStart
 }
