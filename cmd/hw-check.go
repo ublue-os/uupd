@@ -11,7 +11,7 @@ func HwCheck(cmd *cobra.Command, args []string) error {
 	// (some hardware checks require dbus access)
 	err := checks.RunHwChecks()
 	if err != nil {
-		slog.Error("Hardware checks failed: %v", err)
+		slog.Error("Hardware checks failed", slog.Any("error", err))
 		return err
 	}
 	slog.Info("Hardware checks passed")

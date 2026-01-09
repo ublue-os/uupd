@@ -42,6 +42,12 @@ var (
 		RunE:   Wait,
 	}
 
+	configDumpCmd = &cobra.Command{
+		Use:   "config-dump",
+		Short: "Dumps current config",
+		RunE:  ConfigDump,
+	}
+
 	updateCheckCmd = &cobra.Command{
 		Use:    "update-check",
 		Short:  "Check for updates to the booted image, returns exit code 77 if update is not available",
@@ -93,7 +99,7 @@ func initPre() error {
 
 func initLogging() error {
 	logWriter := os.Stdout
-	if fLogFile != "" {
+	if fLogFile != "-" {
 		abs, err := filepath.Abs(path.Clean(fLogFile))
 		if err != nil {
 			return err
@@ -109,7 +115,7 @@ func initLogging() error {
 		return err
 	}
 
-	main_app_logger := slog.New(appLogging.SetupAppLogger(logWriter, logLevel, fLogFile != "" || fLogJson))
+	main_app_logger := slog.New(appLogging.SetupAppLogger(logWriter, logLevel, fLogFile != "-" || fLogJson))
 
 	if fNoLogging {
 		slog.SetDefault(appLogging.NewMuteLogger())
@@ -125,6 +131,7 @@ func init() {
 	rootCmd.AddCommand(updateCheckCmd)
 	rootCmd.AddCommand(hardwareCheckCmd)
 	rootCmd.AddCommand(imageOutdatedCmd)
+	rootCmd.AddCommand(configDumpCmd)
 
 	// config flags
 	rootCmd.Flags().Bool("disable-module-system", false, "Disable the System module")

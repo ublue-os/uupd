@@ -49,7 +49,6 @@ type Config struct {
 }
 
 const DEFAULT_PATH string = "/etc/uupd/config.json"
-const AUTOUPDATE_DEFAULT_PATH string = "/etc/uupd/auto-config.json"
 
 var Conf Config
 
@@ -57,24 +56,24 @@ func defaults() {
 	d := viper.SetDefault
 	e := viper.BindEnv
 
-	d("log.level", "info")
+	d("log.level", "debug")
 	d("log.file", "-")
 	d("log.json", false)
 	d("log.quiet", false)
 
 	// modules
-	d("modules.flatpak.disable", true)
-	d("modules.flatpak.binary-path", true)
+	d("modules.flatpak.disable", false)
+	d("modules.flatpak.binary-path", "/usr/bin/flatpak")
 
-	d("modules.brew.disable", true)
+	d("modules.brew.disable", false)
 
-	d("modules.system.disable", true)
+	d("modules.system.disable", false)
 	d("modules.system.rpm-ostree-binary", "/usr/bin/rpm-ostree")
 	d("modules.system.bootc-binary", "/usr/bin/bootc")
 	d("modules.system.skopeo-binary", "/usr/bin/skopeo")
 
-	d("modules.distrobox.disable", true)
-	d("modules.distrobox.binary-path", true)
+	d("modules.distrobox.disable", false)
+	d("modules.distrobox.binary-path", "/usr/bin/distrobox")
 
 	// checks
 	d("checks.hardware.enable", true)
