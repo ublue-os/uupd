@@ -1,0 +1,5 @@
+app:
+  name: "MyApp"
+  port: 8080
+namespace: "myapp"
+owner: "John Doe"
