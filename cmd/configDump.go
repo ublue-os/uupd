@@ -3,13 +3,14 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/spf13/cobra"
 
-	"github.com/ublue-os/uupd/pkg/config"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func ConfigDump(cmd *cobra.Command, args []string) error {
-	ret, err := json.MarshalIndent(config.Conf, "", "    ")
+	settings := viper.AllSettings()
+	ret, err := json.MarshalIndent(settings, "", "    ")
 	if err != nil {
 		return err
 	}

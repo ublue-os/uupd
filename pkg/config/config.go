@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/viper"
 )
@@ -96,14 +97,19 @@ func defaults() {
 func InitConfig(p string) error {
 
 	viper.SetConfigFile(p)
-	viper.SetConfigType("json")
 	defaults()
 
-	if err := viper.Unmarshal(&Conf); err != nil {
-		return fmt.Errorf("Failed to unmarshal config: %v", err)
+	if _, err := os.Stat(p); err == nil {
+		if err := viper.ReadInConfig(); err != nil {
+			return fmt.Errorf("failed to read config: %w", err)
+		}
+	} else if p != DEFAULT_PATH {
+		return fmt.Errorf("Bad config file path: %s", p)
 	}
 
-	_ = viper.ReadInConfig()
+	if err := viper.UnmarshalExact(&Conf); err != nil {
+		return fmt.Errorf("Failed to unmarshal config: %v", err)
+	}
 
 	return nil
 }
