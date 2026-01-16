@@ -54,8 +54,8 @@ go test -v ./...
 %{_bindir}/%{name}
 %{_unitdir}/%{name}.service
 %{_unitdir}/%{name}.timer
+%{_unitdir}/%{name}-manual.service
 %config(noreplace) %{_sysconfdir}/polkit-1/rules.d/%{name}.rules
 %config(noreplace) %{_sysconfdir}/%{name}/config.json
-
 %changelog
 %autochangelog
