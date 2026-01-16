@@ -31,7 +31,6 @@ A simple updater for Universal Blue systems
 
 %build
 go build -v -o %{name}
-./%{name} config-dump > ./config.json
 
 %install
 install -Dpm 0755 %{name} %{buildroot}%{_bindir}/%{name}
