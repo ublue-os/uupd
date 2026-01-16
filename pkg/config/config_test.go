@@ -46,7 +46,9 @@ func TestConfigLocation(t *testing.T) {
 
 	tempDir := t.TempDir()
 	path := filepath.Join(tempDir, "config.json")
-	os.WriteFile(path, []byte(newConfig), 0644)
+	if err := os.WriteFile(path, []byte(newConfig), 0644); err != nil {
+		t.Fatalf("unable to write file: %s, %v", path, err)
+	}
 
 	if err := config.InitConfig(path); err != nil {
 		t.Fatalf("unable to init config: %v", err)
@@ -75,7 +77,9 @@ func TestConfigInvalidConfig(t *testing.T) {
 
 	tempDir := t.TempDir()
 	path := filepath.Join(tempDir, "config.json")
-	os.WriteFile(path, []byte(newConfig), 0644)
+	if err := os.WriteFile(path, []byte(newConfig), 0644); err != nil {
+		t.Fatalf("unable to write file: %s, %v", path, err)
+	}
 
 	if err := config.InitConfig(path); err == nil {
 		t.Fatalf("bad config went through")
