@@ -126,7 +126,6 @@ func initLogging() error {
 }
 
 func init() {
-
 	rootCmd.AddCommand(waitCmd)
 	rootCmd.AddCommand(updateCheckCmd)
 	rootCmd.AddCommand(hardwareCheckCmd)
@@ -138,24 +137,7 @@ func init() {
 	rootCmd.Flags().Bool("disable-module-flatpak", false, "Disable the Flatpak module")
 	rootCmd.Flags().Bool("disable-module-distrobox", false, "Disable the Distrobox update module")
 	rootCmd.Flags().Bool("disable-module-brew", false, "Disable the Brew update module")
-
-	rootCmd.PersistentFlags().BoolVar(&fLogJson, "json", false, "Print logs as json")
-	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
-	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")
-	// misc flags
-
-	rootCmd.Flags().BoolP("force", "f", false, "Force system update without update checks")
-	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run")
-	// rootCmd.Flags().Bool("auto", false, "Indicate that this is an automatic update")
-	rootCmd.PersistentFlags().StringVar(&fConfigPath, "config", config.DEFAULT_PATH, "Config file path")
-
-	rootCmd.Flags().BoolP("verbose", "v", false, "Display command outputs after run")
-
-	rootCmd.Flags().Bool("ci", false, "Makes some modifications to behavior if is running in CI")
-	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-	rootCmd.Flags().Bool("disable-progress", !isTerminal, "Disable the GUI progress indicator, automatically disabled when loglevel is debug or in JSON")
-	rootCmd.Flags().Bool("apply", false, "Reboot if there's an update to the image")
-	rootCmd.PersistentFlags().BoolVar(&fNoLogging, "quiet", false, "Make logs quiet")
+	rootCmd.Flags().Bool("hw-check", false, "Enable hardware checks before updates (useful for running auto updates)")
 
 	_ = viper.BindPFlag("modules.flatpak.disable", rootCmd.Flags().Lookup("disable-module-flatpak"))
 	_ = viper.BindPFlag("modules.brew.disable", rootCmd.Flags().Lookup("disable-module-brew"))
@@ -163,11 +145,24 @@ func init() {
 	_ = viper.BindPFlag("modules.distrobox.disable", rootCmd.Flags().Lookup("disable-module-distrobox"))
 	_ = viper.BindPFlag("checks.hardware.enable", rootCmd.Flags().Lookup("hw-check"))
 
-	// _ = viper.BindPFlag("update.force", rootCmd.Flags().Lookup("force"))
-	// _ = viper.BindPFlag("update.verbose", rootCmd.Flags().Lookup("verbose"))
+	rootCmd.PersistentFlags().BoolVar(&fLogJson, "json", false, "Print logs as json")
+	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
+	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")
+	rootCmd.PersistentFlags().BoolVar(&fNoLogging, "quiet", false, "Make logs quiet")
 
 	_ = viper.BindPFlag("logging.json", rootCmd.PersistentFlags().Lookup("json"))
 	_ = viper.BindPFlag("logging.file", rootCmd.PersistentFlags().Lookup("log-file"))
 	_ = viper.BindPFlag("logging.level", rootCmd.PersistentFlags().Lookup("log-level"))
 	_ = viper.BindPFlag("logging.quiet", rootCmd.PersistentFlags().Lookup("quiet"))
+
+	// misc
+	rootCmd.PersistentFlags().StringVar(&fConfigPath, "config", config.DEFAULT_PATH, "Config file path")
+	rootCmd.Flags().BoolP("force", "f", false, "Force system update without update checks")
+	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run")
+	rootCmd.Flags().BoolP("verbose", "v", false, "Display command outputs after run")
+	rootCmd.Flags().Bool("ci", false, "Makes some modifications to behavior if is running in CI")
+	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+	rootCmd.Flags().Bool("disable-progress", !isTerminal, "Disable the GUI progress indicator, automatically disabled when loglevel is debug or in JSON")
+	rootCmd.Flags().Bool("apply", false, "Reboot if there's an update to the image")
+
 }

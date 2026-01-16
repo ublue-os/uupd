@@ -9,10 +9,10 @@ import (
 )
 
 func ConfigDump(cmd *cobra.Command, args []string) error {
-	ret, err := json.MarshalIndent(config.Conf, " ", " ")
+	ret, err := json.MarshalIndent(config.Conf, "", "    ")
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s", ret)
+	fmt.Printf("%s\n", ret)
 	return nil
 }

@@ -56,10 +56,10 @@ func defaults() {
 	d := viper.SetDefault
 	e := viper.BindEnv
 
-	d("log.level", "debug")
-	d("log.file", "-")
-	d("log.json", false)
-	d("log.quiet", false)
+	d("logging.level", "debug")
+	d("logging.file", "-")
+	d("logging.json", false)
+	d("logging.quiet", false)
 
 	// modules
 	d("modules.flatpak.disable", false)
