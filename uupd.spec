@@ -36,6 +36,7 @@ go build -v -o %{name}
 %install
 install -Dpm 0755 %{name} %{buildroot}%{_bindir}/%{name}
 install -Dpm 644 %{name}.service %{buildroot}%{_unitdir}/%{name}.service
+install -Dpm 644 %{name}-manual.service %{buildroot}%{_unitdir}/%{name}-manual.service
 install -Dpm 644 %{name}.timer %{buildroot}%{_unitdir}/%{name}.timer
 install -Dpm 644 %{name}.rules %{buildroot}%{_sysconfdir}/polkit-1/rules.d/%{name}.rules
 install -Dpm 644 config.json %{buildroot}/%{_sysconfdir}/%{name}/config.json
