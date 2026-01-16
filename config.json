@@ -1,0 +1,36 @@
+{
+    "Modules": {
+        "Flatpak": {
+            "Disable": false,
+            "BinaryPath": "/usr/bin/flatpak"
+        },
+        "Brew": {
+            "Disable": false
+        },
+        "System": {
+            "Disable": false,
+            "RpmOstreeBinary": "/usr/bin/rpm-ostree",
+            "BootcBinary": "/usr/bin/bootc",
+            "SkopeoBinary": "/usr/bin/skopeo"
+        },
+        "Distrobox": {
+            "Disable": false,
+            "BinaryPath": "/usr/bin/distrobox"
+        }
+    },
+    "Logging": {
+        "Level": "debug",
+        "File": "-",
+        "Quiet": false,
+        "JSON": false
+    },
+    "Checks": {
+        "Hardware": {
+            "Enable": true,
+            "BatteryMinPercent": 100,
+            "NetMaxBytes": 700000,
+            "MemMaxPercent": 90,
+            "CpuMaxPercent": 50
+        }
+    }
+}

@@ -29,44 +29,56 @@ func assertRoot(cmd *cobra.Command, args []string) {
 
 var (
 	rootCmd = &cobra.Command{
-		Use:    "uupd",
-		Short:  "uupd (Universal Update) is the successor to ublue-update, built for bootc",
-		PreRun: assertRoot,
-		RunE:   Update,
+		Use:           "uupd",
+		Short:         "uupd (Universal Update) is the successor to ublue-update, built for bootc",
+		PreRun:        assertRoot,
+		RunE:          Update,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	waitCmd = &cobra.Command{
-		Use:    "wait",
-		Short:  "Waits for ostree sysroot to unlock",
-		PreRun: assertRoot,
-		RunE:   Wait,
+		Use:           "wait",
+		Short:         "Waits for ostree sysroot to unlock",
+		PreRun:        assertRoot,
+		RunE:          Wait,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	configDumpCmd = &cobra.Command{
-		Use:   "config-dump",
-		Short: "Dumps current config",
-		RunE:  ConfigDump,
+		Use:           "config-dump",
+		Short:         "Dumps current config",
+		RunE:          ConfigDump,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	updateCheckCmd = &cobra.Command{
-		Use:    "update-check",
-		Short:  "Check for updates to the booted image, returns exit code 77 if update is not available",
-		PreRun: assertRoot,
-		RunE:   UpdateCheck,
+		Use:           "update-check",
+		Short:         "Check for updates to the booted image, returns exit code 77 if update is not available",
+		PreRun:        assertRoot,
+		RunE:          UpdateCheck,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	hardwareCheckCmd = &cobra.Command{
-		Use:    "hw-check",
-		Short:  "Run hardware checks",
-		PreRun: assertRoot,
-		RunE:   HwCheck,
+		Use:           "hw-check",
+		Short:         "Run hardware checks",
+		PreRun:        assertRoot,
+		RunE:          HwCheck,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	imageOutdatedCmd = &cobra.Command{
-		Use:    "is-img-outdated",
-		Short:  "Checks if the current booted image is over 1 month old, returns exit code 77 if true.",
-		PreRun: assertRoot,
-		RunE:   ImageOutdated,
+		Use:           "is-img-outdated",
+		Short:         "Checks if the current booted image is over 1 month old, returns exit code 77 if true.",
+		PreRun:        assertRoot,
+		RunE:          ImageOutdated,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	fLogFile    string
@@ -82,7 +94,7 @@ func Execute() {
 		os.Exit(1)
 	}
 	if err := rootCmd.Execute(); err != nil {
-		slog.Error("Command failed!", slog.Any("error", err))
+		// slog.Error("Command failed!", slog.Any("error", err))
 		os.Exit(1)
 	}
 }
@@ -164,5 +176,4 @@ func init() {
 	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 	rootCmd.Flags().Bool("disable-progress", !isTerminal, "Disable the GUI progress indicator, automatically disabled when loglevel is debug or in JSON")
 	rootCmd.Flags().Bool("apply", false, "Reboot if there's an update to the image")
-
 }

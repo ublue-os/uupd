@@ -221,10 +221,15 @@ func Update(cmd *cobra.Command, args []string) error {
 		slog.Warn("Exited with failed updates.")
 
 		for _, output := range failures {
-			slog.Info(output.Context, slog.Any("output", output))
+			slog.Error("module_fail",
+				slog.Any("output", output),
+				slog.String("module", output.Context),
+				slog.String("cli", strings.Join(output.Cli, " ")),
+			)
 		}
-		session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
+		_ = session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
 
+		slog.Error("Updates finished with errors!")
 		return err
 	}
 

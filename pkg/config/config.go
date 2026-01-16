@@ -85,7 +85,7 @@ func defaults() {
 	_ = e("checks.hardware.bat-min-percent", "UUPD_BATTERY_MIN_PERCENT")
 	_ = e("checks.hardware.net-max-bytes", "UUPD_NETWORK_MAX_BYTES")
 	_ = e("checks.hardware.mem-max-percent", "UUPD_MEMORY_MAX_PERCENT")
-	_ = e("checks.hardware.cpu-max-load-percent", "UUPD_CPU_MAX_LOAD_PERCENT")
+	_ = e("checks.hardware.cpu-max-percent", "UUPD_CPU_MAX_LOAD_PERCENT")
 	_ = e("modules.system.bootc-binary", "UUPD_BOOTC_BINARY")
 	_ = e("modules.system.rpm-ostree-binary", "UUPD_RPMOSTREE_BINARY")
 	_ = e("modules.system.skopeo-binary", "UUPD_SKOPEO_BINARY")
