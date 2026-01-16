@@ -14,6 +14,7 @@ import (
 
 	. "github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/rpmostree"
+	appConfig "github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/percent"
 )
 
@@ -181,6 +182,7 @@ func (up SystemUpdater) Steps() int {
 }
 
 func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, error) {
+	conf := appConfig.Get().Modules.System
 	up.Config = DriverConfiguration{
 		Title:       "System",
 		Description: "Bootc",
@@ -189,7 +191,7 @@ func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, err
 		Environment: config.Environment,
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
-	up.BinaryPath = EnvOrFallback(config.Environment, "UUPD_BOOTC_BINARY", "/usr/bin/bootc")
+	up.BinaryPath = conf.BootcBinary
 
 	return up, nil
 }
@@ -249,5 +251,4 @@ func InitializeSystemDriver(initConfiguration UpdaterInitConfiguration) (SystemU
 	}
 	mainSystemDriver = rpmOstreeUpdater
 	return mainSystemDriver, rpmOstreeUpdater.Config, isBootc, err
-
 }

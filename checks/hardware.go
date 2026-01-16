@@ -18,10 +18,11 @@ type Info struct {
 
 func Hardware(conn *dbus.Conn) []Info {
 	var checks []Info
-	checks = append(checks, battery(conn, config.Conf.Checks.Hardware.BatteryMinPercent))
-	checks = append(checks, network(conn, config.Conf.Checks.Hardware.NetMaxBytes))
-	checks = append(checks, cpu(config.Conf.Checks.Hardware.CpuMaxPercent))
-	checks = append(checks, memory(config.Conf.Checks.Hardware.MemMaxPercent))
+	conf := config.Get()
+	checks = append(checks, battery(conn, conf.Checks.Hardware.BatteryMinPercent))
+	checks = append(checks, network(conn, conf.Checks.Hardware.NetMaxBytes))
+	checks = append(checks, cpu(conf.Checks.Hardware.CpuMaxPercent))
+	checks = append(checks, memory(conf.Checks.Hardware.MemMaxPercent))
 
 	return checks
 }

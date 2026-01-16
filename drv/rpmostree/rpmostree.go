@@ -12,15 +12,16 @@ import (
 	"time"
 
 	. "github.com/ublue-os/uupd/drv/generic"
+	appConfig "github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
 type rpmOstreeStatus struct {
 	Deployments []struct {
-		Timestamp int64  `json:"timestamp"`
-		Meta    BaseCommitMeta `json:"base-commit-meta"`
-		Reference string `json:"container-image-reference"`
+		Timestamp int64          `json:"timestamp"`
+		Meta      BaseCommitMeta `json:"base-commit-meta"`
+		Reference string         `json:"container-image-reference"`
 	} `json:"deployments"`
 }
 
@@ -85,6 +86,7 @@ func (up RpmOstreeUpdater) Steps() int {
 }
 
 func (up RpmOstreeUpdater) New(config UpdaterInitConfiguration) (RpmOstreeUpdater, error) {
+	conf := appConfig.Get().Modules.System
 	up.Config = DriverConfiguration{
 		Title:       "System",
 		Description: "rpm-ostree",
@@ -93,8 +95,8 @@ func (up RpmOstreeUpdater) New(config UpdaterInitConfiguration) (RpmOstreeUpdate
 		Environment: config.Environment,
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
-	up.BinaryPath = EnvOrFallback(up.Config.Environment, "UUPD_RPMOSTREE_BINARY", "/usr/bin/rpm-ostree")
-	up.SkopeoPath = EnvOrFallback(up.Config.Environment, "UUPD_SKOPEO_BINARY", "/usr/bin/skopeo")
+	up.BinaryPath = conf.RpmOstreeBinary
+	up.SkopeoPath = conf.SkopeoBinary
 
 	return up, nil
 }

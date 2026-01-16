@@ -23,6 +23,10 @@ import (
 )
 
 func Update(cmd *cobra.Command, args []string) error {
+	conf := config.Get()
+	modules := conf.Modules
+	logging := conf.Logging
+
 	lockfile, err := filelock.OpenLockfile(filelock.GetDefaultLockfile())
 	if err != nil {
 		slog.Error("Failed creating and opening lockfile. Is uupd already running?", slog.Any("error", err))
@@ -40,7 +44,7 @@ func Update(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	hwCheck := config.Conf.Checks.Hardware.Enable
+	hwCheck := conf.Checks.Hardware.Enable
 	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
 		slog.Error("Failed to get dry-run flag", "error", err)
@@ -51,9 +55,9 @@ func Update(cmd *cobra.Command, args []string) error {
 		slog.Error("Failed to get verbose flag", "error", err)
 		return err
 	}
-	jsonLog := config.Conf.Logging.JSON
+	jsonLog := logging.JSON
 
-	logLevel := config.Conf.Logging.Level
+	logLevel := logging.Level
 	// We DONT want to display the progress bar when we have JSON logs or when are logs are cluttered/debug (prints out command output)
 	disableProgress := jsonLog || (logLevel != "info")
 	applySystem, err := cmd.Flags().GetBool("apply")
@@ -67,10 +71,10 @@ func Update(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	disableModuleSystem := config.Conf.Modules.System.Disable
-	disableModuleFlatpak := config.Conf.Modules.Flatpak.Disable
-	disableModuleBrew := config.Conf.Modules.Brew.Disable
-	disableModuleDistrobox := config.Conf.Modules.Distrobox.Disable
+	disableModuleSystem := modules.System.Disable
+	disableModuleFlatpak := modules.Flatpak.Disable
+	disableModuleBrew := modules.Brew.Disable
+	disableModuleDistrobox := modules.Distrobox.Disable
 
 	if hwCheck {
 		err := checks.RunHwChecks()

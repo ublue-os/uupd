@@ -90,24 +90,10 @@ var (
 )
 
 func Execute() {
-	if err := initPre(); err != nil {
-		slog.Error("Unable to init", slog.Any("error", err))
-		os.Exit(1)
-	}
 	if err := rootCmd.Execute(); err != nil {
 		slog.Error(fmt.Sprintf("%v", err))
 		os.Exit(1)
 	}
-}
-
-func initPre() error {
-	if err := config.InitConfig(fConfigPath); err != nil {
-		return fmt.Errorf("Failed to init config: %v", err)
-	}
-	if err := initLogging(); err != nil {
-		return fmt.Errorf("Failed to init logging: %v", err)
-	}
-	return nil
 }
 
 func initLogging() error {
@@ -139,6 +125,18 @@ func initLogging() error {
 }
 
 func init() {
+	cobra.OnInitialize(
+		func() {
+			if err := initLogging(); err != nil {
+				fmt.Printf("failed to init logging: %v\n", err)
+				os.Exit(1)
+			}
+			if err := config.InitConfig(fConfigPath); err != nil {
+				slog.Error("failed to init config", slog.Any("error", err))
+				os.Exit(1)
+			}
+		},
+	)
 	rootCmd.AddCommand(waitCmd)
 	rootCmd.AddCommand(updateCheckCmd)
 	rootCmd.AddCommand(hardwareCheckCmd)

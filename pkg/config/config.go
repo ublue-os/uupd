@@ -51,7 +51,7 @@ type Config struct {
 
 const DEFAULT_PATH string = "/etc/uupd/config.json"
 
-var Conf Config
+var conf Config
 
 func defaults() {
 	d := viper.SetDefault
@@ -87,11 +87,12 @@ func defaults() {
 	_ = e("checks.hardware.net-max-bytes", "UUPD_NETWORK_MAX_BYTES")
 	_ = e("checks.hardware.mem-max-percent", "UUPD_MEMORY_MAX_PERCENT")
 	_ = e("checks.hardware.cpu-max-percent", "UUPD_CPU_MAX_LOAD_PERCENT")
-	_ = e("modules.system.bootc-binary", "UUPD_BOOTC_BINARY")
-	_ = e("modules.system.rpm-ostree-binary", "UUPD_RPMOSTREE_BINARY")
-	_ = e("modules.system.skopeo-binary", "UUPD_SKOPEO_BINARY")
-	_ = e("modules.flatpak.binary-path", "UUPD_FLATPAK_BINARY")
-	_ = e("modules.distrobox.binary-path", "UUPD_DISTROBOX_BINARY")
+
+	// _ = e("modules.system.bootc-binary", "UUPD_BOOTC_BINARY")
+	// _ = e("modules.system.rpm-ostree-binary", "UUPD_RPMOSTREE_BINARY")
+	// _ = e("modules.system.skopeo-binary", "UUPD_SKOPEO_BINARY")
+	// _ = e("modules.flatpak.binary-path", "UUPD_FLATPAK_BINARY")
+	// _ = e("modules.distrobox.binary-path", "UUPD_DISTROBOX_BINARY")
 }
 
 func InitConfig(p string) error {
@@ -107,9 +108,13 @@ func InitConfig(p string) error {
 		return fmt.Errorf("Bad config file path: %s", p)
 	}
 
-	if err := viper.UnmarshalExact(&Conf); err != nil {
+	if err := viper.UnmarshalExact(&conf); err != nil {
 		return fmt.Errorf("Failed to unmarshal config: %v", err)
 	}
 
 	return nil
+}
+
+func Get() *Config {
+	return &conf
 }
