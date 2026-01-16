@@ -1,5 +1,5 @@
 [Unit]
-Description=Universal Blue Update Oneshot Service
+Description=Universal Blue Update Oneshot Service - Manual Activation
 StartLimitBurst=3
 StartLimitIntervalSec=600
 
@@ -12,7 +12,7 @@ Type=oneshot
 #Environment="UUPD_CPU_MAX_LOAD_PERCENT=50"
 
 # DO NOT CHANGE ANYTHING BELOW UNLESS YOU KNOW WHAT YOU ARE DOING
-ExecStart=/usr/bin/uupd --hw-check
+ExecStart=/usr/bin/uupd --hw-check=false
 # Restart on failure for edge cases like waking from suspend and wifi not connecting immediately
 Restart=on-failure
 RestartSec=60s

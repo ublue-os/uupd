@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"os/user"
@@ -20,10 +19,12 @@ func assertRoot(cmd *cobra.Command, args []string) {
 	currentUser, err := user.Current()
 
 	if err != nil {
-		log.Fatalf("Error fetching current user: %v", err)
+		slog.Error("Error fetching current user", slog.Any("error", err))
+		os.Exit(1)
 	}
 	if currentUser.Uid != "0" {
-		log.Fatalf("uupd needs to be invoked as root.")
+		slog.Error("uupd needs to be invoked as root.")
+		os.Exit(1)
 	}
 }
 
@@ -94,7 +95,7 @@ func Execute() {
 		os.Exit(1)
 	}
 	if err := rootCmd.Execute(); err != nil {
-		// slog.Error("Command failed!", slog.Any("error", err))
+		slog.Error(fmt.Sprintf("%v", err))
 		os.Exit(1)
 	}
 }
