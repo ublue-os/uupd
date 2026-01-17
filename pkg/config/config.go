@@ -44,11 +44,11 @@ type Config struct {
 
 	Checks struct {
 		Hardware struct {
-			Enable            bool `mapstructure:"enable"`
-			BatteryMinPercent int  `mapstructure:"bat-min-percent"`
-			NetMaxBytes       int  `mapstructure:"net-max-bytes"`
-			MemMaxPercent     int  `mapstructure:"mem-max-percent"`
-			CpuMaxPercent     int  `mapstructure:"cpu-max-percent"`
+			Enable            bool   `mapstructure:"enable"`
+			BatteryMinPercent int    `mapstructure:"bat-min-percent"`
+			NetMaxBytes       uint64 `mapstructure:"net-max-bytes"`
+			MemMaxPercent     int    `mapstructure:"mem-max-percent"`
+			CpuMaxPercent     int    `mapstructure:"cpu-max-percent"`
 		} `mapstructure:"hardware"`
 	} `mapstructure:"checks"`
 }

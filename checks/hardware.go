@@ -105,7 +105,7 @@ func battery(conn *dbus.Conn, min int) Info {
 	}
 }
 
-func network(conn *dbus.Conn, max int) Info {
+func network(conn *dbus.Conn, max uint64) Info {
 	const name string = "Network"
 
 	nm := conn.Object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
@@ -183,7 +183,7 @@ func network(conn *dbus.Conn, max int) Info {
 	}
 	netAvg := total / 5
 
-	if netAvg > uint64(max) {
+	if netAvg > max {
 		return Info{
 			name,
 			fmt.Errorf("network is busy, with above %d bytes received (%v)", max, netAvg),
