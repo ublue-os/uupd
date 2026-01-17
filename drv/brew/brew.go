@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	. "github.com/ublue-os/uupd/drv/generic"
+	appConfig "github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
@@ -79,6 +80,7 @@ type BrewUpdater struct {
 }
 
 func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) {
+	conf := appConfig.Get().Modules.Brew
 	up.Config = DriverConfiguration{
 		Title:       "Brew",
 		Description: "CLI Apps",
@@ -89,10 +91,10 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 
-	up.BrewPrefix = EnvOrFallback(up.Config.Environment, "HOMEBREW_PREFIX", "/home/linuxbrew/.linuxbrew")
-	up.BrewRepo = EnvOrFallback(up.Config.Environment, "HOMEBREW_REPOSITORY", fmt.Sprintf("%s/Homebrew", up.BrewPrefix))
-	up.BrewCellar = EnvOrFallback(up.Config.Environment, "HOMEBREW_CELLAR", fmt.Sprintf("%s/Cellar", up.BrewPrefix))
-	up.BrewPath = EnvOrFallback(up.Config.Environment, "HOMEBREW_PATH", fmt.Sprintf("%s/bin/brew", up.BrewPrefix))
+	up.BrewPrefix = conf.Prefix
+	up.BrewRepo = conf.Repository
+	up.BrewCellar = conf.Cellar
+	up.BrewPath = conf.Path
 
 	if up.Config.DryRun {
 		return up, nil

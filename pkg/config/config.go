@@ -15,7 +15,11 @@ type Config struct {
 		} `mapstructure:"flatpak"`
 
 		Brew struct {
-			Disable bool `mapstructure:"disable"`
+			Disable    bool   `mapstructure:"disable"`
+			Prefix     string `mapstructure:"prefix"`
+			Repository string `mapstructure:"repository"`
+			Cellar     string `mapstructure:"cellar"`
+			Path       string `mapstructure:"path"`
 		} `mapstructure:"brew"`
 
 		System struct {
@@ -88,11 +92,29 @@ func defaults() {
 	_ = e("checks.hardware.mem-max-percent", "UUPD_MEMORY_MAX_PERCENT")
 	_ = e("checks.hardware.cpu-max-percent", "UUPD_CPU_MAX_LOAD_PERCENT")
 
-	// _ = e("modules.system.bootc-binary", "UUPD_BOOTC_BINARY")
-	// _ = e("modules.system.rpm-ostree-binary", "UUPD_RPMOSTREE_BINARY")
-	// _ = e("modules.system.skopeo-binary", "UUPD_SKOPEO_BINARY")
-	// _ = e("modules.flatpak.binary-path", "UUPD_FLATPAK_BINARY")
-	// _ = e("modules.distrobox.binary-path", "UUPD_DISTROBOX_BINARY")
+	_ = e("modules.system.bootc-binary", "UUPD_BOOTC_BINARY")
+	_ = e("modules.system.rpm-ostree-binary", "UUPD_RPMOSTREE_BINARY")
+	_ = e("modules.system.skopeo-binary", "UUPD_SKOPEO_BINARY")
+	_ = e("modules.flatpak.binary-path", "UUPD_FLATPAK_BINARY")
+	_ = e("modules.distrobox.binary-path", "UUPD_DISTROBOX_BINARY")
+
+	var (
+		HomebrewDefaultPrefix string = "/home/linuxbrew/.linuxbrew"
+
+		HomebrewDefaultRepository string = fmt.Sprintf("%s/Homebrew", HomebrewDefaultPrefix)
+		HomebrewDefaultCellar     string = fmt.Sprintf("%s/Cellar", HomebrewDefaultPrefix)
+		HomebrewDefaultPath       string = fmt.Sprintf("%s/bin/brew", HomebrewDefaultPrefix)
+	)
+
+	d("modules.brew.prefix", HomebrewDefaultPrefix)
+	d("modules.brew.repository", HomebrewDefaultRepository)
+	d("modules.brew.cellar", HomebrewDefaultCellar)
+	d("modules.brew.path", HomebrewDefaultPath)
+
+	_ = e("modules.brew.prefix", "HOMEBREW_PREFIX")
+	_ = e("modules.brew.repository", "HOMEBREW_REPOSITORY")
+	_ = e("modules.brew.cellar", "HOMEBREW_CELLAR")
+	_ = e("modules.brew.path", "HOMEBREW_PATH")
 }
 
 func InitConfig(p string) error {
