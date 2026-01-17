@@ -18,14 +18,6 @@ type UpdaterInitConfiguration struct {
 	Logger      *slog.Logger
 }
 
-func EnvOrFallback(environment EnvironmentMap, key string, fallback string) string {
-	validCase, exists := environment[key]
-	if exists && validCase != "" {
-		return validCase
-	}
-	return fallback
-}
-
 func GetEnvironment(data []string) map[string]string {
 	items := make(map[string]string)
 	for _, item := range data {

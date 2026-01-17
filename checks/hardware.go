@@ -2,27 +2,13 @@ package checks
 
 import (
 	"fmt"
-	"log/slog"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/net"
-)
-
-const (
-	envBatMinPercent     string = "UUPD_BATTERY_MIN_PERCENT"
-	envNetMaxBytes       string = "UUPD_NETWORK_MAX_BYTES"
-	envMemMaxPercent     string = "UUPD_MEMORY_MAX_PERCENT"
-	envCpuMaxLoadPercent string = "UUPD_CPU_MAX_LOAD_PERCENT"
-
-	batMinPercent     int = 20
-	netMaxBytes       int = 700000
-	memMaxPercent     int = 90
-	cpuMaxLoadPercent int = 50
+	"github.com/ublue-os/uupd/pkg/config"
 )
 
 type Info struct {
@@ -30,36 +16,18 @@ type Info struct {
 	Err  error
 }
 
-func envOrFallbackInt(key string, fallback int) int {
-	valStr, exists := os.LookupEnv(key)
-	if !exists {
-		return fallback
-	}
-
-	valInt, err := strconv.Atoi(valStr)
-	if err != nil {
-		slog.Default().Warn("Failed to parse environment variable as int",
-			"key", key,
-			"value", valStr,
-			"error", err,
-		)
-		return fallback
-	}
-
-	return valInt
-}
-
 func Hardware(conn *dbus.Conn) []Info {
 	var checks []Info
-	checks = append(checks, battery(conn))
-	checks = append(checks, network(conn))
-	checks = append(checks, cpu())
-	checks = append(checks, memory())
+	conf := config.Get()
+	checks = append(checks, battery(conn, conf.Checks.Hardware.BatteryMinPercent))
+	checks = append(checks, network(conn, conf.Checks.Hardware.NetMaxBytes))
+	checks = append(checks, cpu(conf.Checks.Hardware.CpuMaxPercent))
+	checks = append(checks, memory(conf.Checks.Hardware.MemMaxPercent))
 
 	return checks
 }
 
-func battery(conn *dbus.Conn) Info {
+func battery(conn *dbus.Conn, min int) Info {
 	const name string = "Battery"
 	upower := conn.Object("org.freedesktop.UPower", "/org/freedesktop/UPower")
 	// first, check if the device is running on battery
@@ -101,7 +69,6 @@ func battery(conn *dbus.Conn) Info {
 			fmt.Errorf("unable to get battery percent from: %v", variant),
 		}
 	}
-	min := envOrFallbackInt(envBatMinPercent, batMinPercent)
 	if batteryPercent < float64(min) {
 		return Info{
 			name,
@@ -138,7 +105,7 @@ func battery(conn *dbus.Conn) Info {
 	}
 }
 
-func network(conn *dbus.Conn) Info {
+func network(conn *dbus.Conn, max int) Info {
 	const name string = "Network"
 
 	nm := conn.Object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
@@ -216,7 +183,6 @@ func network(conn *dbus.Conn) Info {
 	}
 	netAvg := total / 5
 
-	max := envOrFallbackInt(envNetMaxBytes, netMaxBytes)
 	if netAvg > uint64(max) {
 		return Info{
 			name,
@@ -231,7 +197,7 @@ func network(conn *dbus.Conn) Info {
 
 }
 
-func memory() Info {
+func memory(max int) Info {
 	const name string = "Memory"
 	v, err := mem.VirtualMemory()
 	if err != nil {
@@ -240,7 +206,6 @@ func memory() Info {
 			err,
 		}
 	}
-	max := envOrFallbackInt(envMemMaxPercent, memMaxPercent)
 	if v.UsedPercent > float64(max) {
 		return Info{
 			name,
@@ -253,7 +218,7 @@ func memory() Info {
 	}
 }
 
-func cpu() Info {
+func cpu(max int) Info {
 	const name string = "CPU"
 	avg, err := load.Avg()
 	if err != nil {
@@ -263,7 +228,6 @@ func cpu() Info {
 		}
 	}
 	// Check if the CPU load in the 5 minutes was greater than 50%
-	max := envOrFallbackInt(envCpuMaxLoadPercent, cpuMaxLoadPercent)
 	if avg.Load5 > float64(max) {
 		return Info{
 			name,

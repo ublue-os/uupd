@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"os/user"
@@ -10,6 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/ublue-os/uupd/pkg/config"
 	appLogging "github.com/ublue-os/uupd/pkg/logging"
 	"golang.org/x/term"
 )
@@ -18,64 +19,84 @@ func assertRoot(cmd *cobra.Command, args []string) {
 	currentUser, err := user.Current()
 
 	if err != nil {
-		log.Fatalf("Error fetching current user: %v", err)
+		slog.Error("Error fetching current user", slog.Any("error", err))
+		os.Exit(1)
 	}
 	if currentUser.Uid != "0" {
-		log.Fatalf("uupd needs to be invoked as root.")
+		slog.Error("uupd needs to be invoked as root.")
+		os.Exit(1)
 	}
 }
 
 var (
 	rootCmd = &cobra.Command{
-		Use:               "uupd",
-		Short:             "uupd (Universal Update) is the successor to ublue-update, built for bootc",
-		PersistentPreRunE: initLogging,
-		PreRun:            assertRoot,
-		Run:               Update,
+		Use:           "uupd",
+		Short:         "uupd (Universal Update) is the successor to ublue-update, built for bootc",
+		PreRun:        assertRoot,
+		RunE:          Update,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	waitCmd = &cobra.Command{
-		Use:    "wait",
-		Short:  "Waits for ostree sysroot to unlock",
-		PreRun: assertRoot,
-		Run:    Wait,
+		Use:           "wait",
+		Short:         "Waits for ostree sysroot to unlock",
+		PreRun:        assertRoot,
+		RunE:          Wait,
+		SilenceErrors: true,
+		SilenceUsage:  true,
+	}
+
+	configDumpCmd = &cobra.Command{
+		Use:           "config-dump",
+		Short:         "Dumps current config",
+		RunE:          ConfigDump,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	updateCheckCmd = &cobra.Command{
-		Use:    "update-check",
-		Short:  "Check for updates to the booted image, returns exit code 77 if update is not available",
-		PreRun: assertRoot,
-		Run:    UpdateCheck,
+		Use:           "update-check",
+		Short:         "Check for updates to the booted image, returns exit code 77 if update is not available",
+		PreRun:        assertRoot,
+		RunE:          UpdateCheck,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	hardwareCheckCmd = &cobra.Command{
-		Use:    "hw-check",
-		Short:  "Run hardware checks",
-		PreRun: assertRoot,
-		Run:    HwCheck,
+		Use:           "hw-check",
+		Short:         "Run hardware checks",
+		PreRun:        assertRoot,
+		RunE:          HwCheck,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	imageOutdatedCmd = &cobra.Command{
-		Use:    "is-img-outdated",
-		Short:  "Checks if the current booted image is over 1 month old, returns exit code 77 if true.",
-		PreRun: assertRoot,
-		Run:    ImageOutdated,
+		Use:           "is-img-outdated",
+		Short:         "Checks if the current booted image is over 1 month old, returns exit code 77 if true.",
+		PreRun:        assertRoot,
+		RunE:          ImageOutdated,
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
-	fLogFile   string
-	fLogLevel  string
-	fNoLogging bool
-	fLogJson   bool
+	fLogFile    string
+	fLogLevel   string
+	fNoLogging  bool
+	fLogJson    bool
+	fConfigPath string
 )
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		slog.Error(fmt.Sprintf("%v", err))
 		os.Exit(1)
 	}
 }
 
-func initLogging(cmd *cobra.Command, args []string) error {
+func initLogging() error {
 	logWriter := os.Stdout
 	if fLogFile != "-" {
 		abs, err := filepath.Abs(path.Clean(fLogFile))
@@ -104,15 +125,49 @@ func initLogging(cmd *cobra.Command, args []string) error {
 }
 
 func init() {
+	cobra.OnInitialize(
+		func() {
+			if err := initLogging(); err != nil {
+				fmt.Printf("failed to init logging: %v\n", err)
+				os.Exit(1)
+			}
+			if err := config.InitConfig(fConfigPath); err != nil {
+				slog.Error("failed to init config", slog.Any("error", err))
+				os.Exit(1)
+			}
+		},
+	)
 	rootCmd.AddCommand(waitCmd)
 	rootCmd.AddCommand(updateCheckCmd)
 	rootCmd.AddCommand(hardwareCheckCmd)
 	rootCmd.AddCommand(imageOutdatedCmd)
+	rootCmd.AddCommand(configDumpCmd)
+
+	// config flags
 	rootCmd.Flags().Bool("disable-module-system", false, "Disable the System module")
 	rootCmd.Flags().Bool("disable-module-flatpak", false, "Disable the Flatpak module")
 	rootCmd.Flags().Bool("disable-module-distrobox", false, "Disable the Distrobox update module")
 	rootCmd.Flags().Bool("disable-module-brew", false, "Disable the Brew update module")
-	rootCmd.Flags().BoolP("hw-check", "c", false, "Run hardware check before running updates")
+	rootCmd.Flags().Bool("hw-check", false, "Enable hardware checks before updates (useful for running auto updates)")
+
+	_ = viper.BindPFlag("modules.flatpak.disable", rootCmd.Flags().Lookup("disable-module-flatpak"))
+	_ = viper.BindPFlag("modules.brew.disable", rootCmd.Flags().Lookup("disable-module-brew"))
+	_ = viper.BindPFlag("modules.system.disable", rootCmd.Flags().Lookup("disable-module-system"))
+	_ = viper.BindPFlag("modules.distrobox.disable", rootCmd.Flags().Lookup("disable-module-distrobox"))
+	_ = viper.BindPFlag("checks.hardware.enable", rootCmd.Flags().Lookup("hw-check"))
+
+	rootCmd.PersistentFlags().BoolVar(&fLogJson, "json", false, "Print logs as json")
+	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
+	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")
+	rootCmd.PersistentFlags().BoolVar(&fNoLogging, "quiet", false, "Make logs quiet")
+
+	_ = viper.BindPFlag("logging.json", rootCmd.PersistentFlags().Lookup("json"))
+	_ = viper.BindPFlag("logging.file", rootCmd.PersistentFlags().Lookup("log-file"))
+	_ = viper.BindPFlag("logging.level", rootCmd.PersistentFlags().Lookup("log-level"))
+	_ = viper.BindPFlag("logging.quiet", rootCmd.PersistentFlags().Lookup("quiet"))
+
+	// misc
+	rootCmd.PersistentFlags().StringVar(&fConfigPath, "config", config.DEFAULT_PATH, "Config file path")
 	rootCmd.Flags().BoolP("force", "f", false, "Force system update without update checks")
 	rootCmd.Flags().BoolP("dry-run", "n", false, "Do a dry run")
 	rootCmd.Flags().BoolP("verbose", "v", false, "Display command outputs after run")
@@ -120,8 +175,4 @@ func init() {
 	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 	rootCmd.Flags().Bool("disable-progress", !isTerminal, "Disable the GUI progress indicator, automatically disabled when loglevel is debug or in JSON")
 	rootCmd.Flags().Bool("apply", false, "Reboot if there's an update to the image")
-	rootCmd.PersistentFlags().BoolVar(&fLogJson, "json", false, "Print logs as json (used for testing)")
-	rootCmd.PersistentFlags().StringVar(&fLogFile, "log-file", "-", "File where user-facing logs will be written to")
-	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")
-	rootCmd.PersistentFlags().BoolVar(&fNoLogging, "quiet", false, "Make logs quiet")
 }

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -15,16 +16,21 @@ import (
 	drv "github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/system"
 
+	"github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/filelock"
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
-func Update(cmd *cobra.Command, args []string) {
+func Update(cmd *cobra.Command, args []string) error {
+	conf := config.Get()
+	modules := conf.Modules
+	logging := conf.Logging
+
 	lockfile, err := filelock.OpenLockfile(filelock.GetDefaultLockfile())
 	if err != nil {
 		slog.Error("Failed creating and opening lockfile. Is uupd already running?", slog.Any("error", err))
-		return
+		return err
 	}
 	defer func(lockfile *os.File) {
 		err := filelock.ReleaseLock(lockfile)
@@ -32,79 +38,49 @@ func Update(cmd *cobra.Command, args []string) {
 			slog.Error("Failed releasing lock", slog.Any("error", err))
 		}
 	}(lockfile)
+
 	if err := filelock.AcquireLock(lockfile, filelock.TimeoutConfig{Tries: 5}); err != nil {
 		slog.Error(fmt.Sprintf("%v, is uupd already running?", err))
-		return
+		return err
 	}
 
-	hwCheck, err := cmd.Flags().GetBool("hw-check")
-	if err != nil {
-		slog.Error("Failed to get hw-check flag", "error", err)
-		return
-	}
+	hwCheck := conf.Checks.Hardware.Enable
 	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
 		slog.Error("Failed to get dry-run flag", "error", err)
-		return
+		return err
 	}
 	verboseRun, err := cmd.Flags().GetBool("verbose")
 	if err != nil {
 		slog.Error("Failed to get verbose flag", "error", err)
-		return
+		return err
 	}
-	jsonLog, err := cmd.Flags().GetBool("json")
-	if err != nil {
-		slog.Error("Failed to get json flag", "error", err)
-		return
-	}
-	disableProgress, err := cmd.Flags().GetBool("disable-progress")
-	if err != nil {
-		slog.Error("Failed to get disable-progress flag", "error", err)
-		return
-	}
-	logLevel, err := cmd.Flags().GetString("log-level")
-	if err != nil {
-		slog.Error("Failed to get log-level flag", "error", err)
-		return
-	}
+	jsonLog := logging.JSON
+
+	logLevel := logging.Level
 	// We DONT want to display the progress bar when we have JSON logs or when are logs are cluttered/debug (prints out command output)
-	disableProgress = disableProgress || jsonLog || (logLevel != "info")
+	disableProgress := jsonLog || (logLevel != "info")
 	applySystem, err := cmd.Flags().GetBool("apply")
 	if err != nil {
 		slog.Error("Failed to get apply flag", "error", err)
-		return
+		return err
 	}
 	force, err := cmd.Flags().GetBool("force")
 	if err != nil {
 		slog.Error("Failed to get force flag", "error", err)
-		return
+		return err
 	}
-	disableModuleSystem, err := cmd.Flags().GetBool("disable-module-system")
-	if err != nil {
-		slog.Error("Failed to get disable-module-system flag", "error", err)
-		return
-	}
-	disableModuleFlatpak, err := cmd.Flags().GetBool("disable-module-flatpak")
-	if err != nil {
-		slog.Error("Failed to get disable-module-flatpak flag", "error", err)
-		return
-	}
-	disableModuleBrew, err := cmd.Flags().GetBool("disable-module-brew")
-	if err != nil {
-		slog.Error("Failed to get disable-module-brew flag", "error", err)
-		return
-	}
-	disableModuleDistrobox, err := cmd.Flags().GetBool("disable-module-distrobox")
-	if err != nil {
-		slog.Error("Failed to get disable-module-distrobox flag", "error", err)
-		return
-	}
+
+	disableModuleSystem := modules.System.Disable
+	disableModuleFlatpak := modules.Flatpak.Disable
+	disableModuleBrew := modules.Brew.Disable
+	disableModuleDistrobox := modules.Distrobox.Disable
 
 	if hwCheck {
 		err := checks.RunHwChecks()
 		if err != nil {
 			slog.Error("Hardware checks failed", "error", err)
-			return
+			return err
 		}
 		slog.Info("Hardware checks passed")
 	}
@@ -112,7 +88,7 @@ func Update(cmd *cobra.Command, args []string) {
 	users, err := session.ListUsers()
 	if err != nil {
 		slog.Error("Failed to list users", "users", users)
-		return
+		return err
 	}
 
 	initConfiguration := drv.UpdaterInitConfiguration{}.New()
@@ -249,11 +225,16 @@ func Update(cmd *cobra.Command, args []string) {
 		slog.Warn("Exited with failed updates.")
 
 		for _, output := range failures {
-			slog.Info(output.Context, slog.Any("output", output))
+			slog.Error("module_fail",
+				slog.Any("output", output),
+				slog.String("module", output.Context),
+				slog.String("cli", strings.Join(output.Cli, " ")),
+			)
 		}
-		// session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
+		_ = session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
 
-		return
+		slog.Error("Updates finished with errors!")
+		return err
 	}
 
 	slog.Info("Updates Completed Successfully")
@@ -263,6 +244,8 @@ func Update(cmd *cobra.Command, args []string) {
 		err := cmd.Run()
 		if err != nil {
 			slog.Error("Failed rebooting machine for updates", slog.Any("error", err))
+			return err
 		}
 	}
+	return nil
 }

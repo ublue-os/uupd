@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	. "github.com/ublue-os/uupd/drv/generic"
+	appConfig "github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
@@ -29,6 +30,7 @@ func (up DistroboxUpdater) Steps() int {
 }
 
 func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdater, error) {
+	conf := appConfig.Get().Modules.Distrobox
 	userdesc := "Distroboxes for User:"
 	up.Config = DriverConfiguration{
 		Title:           "Distrobox",
@@ -42,7 +44,7 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.usersEnabled = false
 
-	up.binaryPath = EnvOrFallback(up.Config.Environment, "UUPD_DISTROBOX_BINARY", "/usr/bin/distrobox")
+	up.binaryPath = conf.BinaryPath
 
 	if up.Config.DryRun {
 		return up, nil
