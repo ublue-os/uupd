@@ -101,14 +101,18 @@ $ journalctl -exu 'uupd.service'
 
 # How do I build this?
 
+## For Testing
 1. `just build` will build this project and place the binary in `output/uupd`
 1. `sudo ./output/uupd` will run an update
-1. You can install this to the system by copying the rules
+
+## Development System Installation
+1. `just build-package` will build `uupd` as a package and place it into `output/rpms/uupd.rpm`
+1. Install the rpm with a package manager of your choice or into a VM for testing
 
 ##  Devcontainer Usage
-  1. When prompted, reopen the repository in Container
-  2. Follow above building instructions
-  3. Download `uupd` from container to host and run on your host
+1. When prompted, reopen the repository in Container
+2. Follow above building instructions
+3. Download `uupd` from container to host and run on your host
 
 # FAQ
 
