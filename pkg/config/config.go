@@ -35,13 +35,6 @@ type Config struct {
 		} `mapstructure:"distrobox"`
 	} `mapstructure:"modules"`
 
-	Logging struct {
-		Level string `mapstructure:"level"`
-		File  string `mapstructure:"file"`
-		Quiet bool   `mapstructure:"quiet"`
-		JSON  bool   `mapstructure:"json"`
-	} `mapstructure:"logging"`
-
 	Checks struct {
 		Hardware struct {
 			Enable            bool   `mapstructure:"enable"`
@@ -61,10 +54,10 @@ func defaults() {
 	d := viper.SetDefault
 	e := viper.BindEnv
 
-	d("logging.level", "info")
-	d("logging.file", "-")
-	d("logging.json", false)
-	d("logging.quiet", false)
+	// d("logging.level", "info")
+	// d("logging.file", "-")
+	// d("logging.json", false)
+	// d("logging.quiet", false)
 
 	// modules
 	d("modules.flatpak.disable", false)
