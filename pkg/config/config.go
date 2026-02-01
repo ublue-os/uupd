@@ -61,7 +61,7 @@ func defaults() {
 	d := viper.SetDefault
 	e := viper.BindEnv
 
-	d("logging.level", "debug")
+	d("logging.level", "info")
 	d("logging.file", "-")
 	d("logging.json", false)
 	d("logging.quiet", false)
