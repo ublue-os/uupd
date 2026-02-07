@@ -25,7 +25,6 @@ import (
 func Update(cmd *cobra.Command, args []string) error {
 	conf := config.Get()
 	modules := conf.Modules
-	logging := conf.Logging
 
 	lockfile, err := filelock.OpenLockfile(filelock.GetDefaultLockfile())
 	if err != nil {
@@ -55,9 +54,8 @@ func Update(cmd *cobra.Command, args []string) error {
 		slog.Error("Failed to get verbose flag", "error", err)
 		return err
 	}
-	jsonLog := logging.JSON
-
-	logLevel := logging.Level
+	jsonLog := fLogJson
+	logLevel := fLogLevel
 	// We DONT want to display the progress bar when we have JSON logs or when are logs are cluttered/debug (prints out command output)
 	disableProgress := jsonLog || (logLevel != "info")
 	applySystem, err := cmd.Flags().GetBool("apply")
