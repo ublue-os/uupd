@@ -161,11 +161,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&fLogLevel, "log-level", "info", "Log level for user-facing logs")
 	rootCmd.PersistentFlags().BoolVar(&fNoLogging, "quiet", false, "Make logs quiet")
 
-	_ = viper.BindPFlag("logging.json", rootCmd.PersistentFlags().Lookup("json"))
-	_ = viper.BindPFlag("logging.file", rootCmd.PersistentFlags().Lookup("log-file"))
-	_ = viper.BindPFlag("logging.level", rootCmd.PersistentFlags().Lookup("log-level"))
-	_ = viper.BindPFlag("logging.quiet", rootCmd.PersistentFlags().Lookup("quiet"))
-
 	// misc
 	rootCmd.PersistentFlags().StringVar(&fConfigPath, "config", config.DEFAULT_PATH, "Config file path")
 	rootCmd.Flags().BoolP("force", "f", false, "Force system update without update checks")
