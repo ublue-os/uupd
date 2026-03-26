@@ -105,24 +105,16 @@ func battery(conn *dbus.Conn, min int) Info {
 	}
 }
 
-func network(conn *dbus.Conn, max uint64) Info {
-	const name string = "Network"
-
+func network_once(conn *dbus.Conn, max uint64) error {
 	nm := conn.Object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
 
 	variant, err := nm.GetProperty("org.freedesktop.NetworkManager.Metered")
 	if err != nil {
-		return Info{
-			name,
-			err,
-		}
+		return err
 	}
 	metered, ok := variant.Value().(uint32)
 	if !ok {
-		return Info{
-			name,
-			fmt.Errorf("Unable to determine if network connection is metered from: %v", variant),
-		}
+		return fmt.Errorf("Unable to determine if network connection is metered from: %v", variant)
 	}
 	// The possible values of "Metered" are documented here:
 	// https://networkmanager.dev/docs/api/latest/nm-dbus-types.html//NMMetered
@@ -134,37 +126,25 @@ func network(conn *dbus.Conn, max uint64) Info {
 	//     NM_METERED_GUESS_NO  = 4 // Not metered, the value was guessed
 	//
 	if metered == 1 || metered == 3 {
-		return Info{
-			name,
-			fmt.Errorf("network is metered"),
-		}
+		return fmt.Errorf("network is metered")
 	}
 
 	// check if user is connected to network
 	var connectivity uint32
 	err = nm.Call("org.freedesktop.NetworkManager.CheckConnectivity", 0).Store(&connectivity)
 	if err != nil {
-		return Info{
-			name,
-			err,
-		}
+		return err
 	}
 
 	// 4 means fully connected: https://networkmanager.dev/docs/api/latest/nm-dbus-types.html#NMConnectivityState
 	if connectivity != 4 {
-		return Info{
-			name,
-			fmt.Errorf("network not online"),
-		}
+		return fmt.Errorf("network not online")
 	}
 
 	// sample the network for 5 seconds
 	s, err := net.IOCounters(false)
 	if err != nil {
-		return Info{
-			name,
-			err,
-		}
+		return err
 	}
 	current := s[0].BytesRecv
 	var total uint64 = 0
@@ -172,10 +152,7 @@ func network(conn *dbus.Conn, max uint64) Info {
 		time.Sleep(time.Second)
 		s, err := net.IOCounters(false)
 		if err != nil {
-			return Info{
-				name,
-				err,
-			}
+			return err
 		}
 		new := s[0].BytesRecv
 		total += new - current
@@ -184,17 +161,31 @@ func network(conn *dbus.Conn, max uint64) Info {
 	netAvg := total / 5
 
 	if netAvg > max {
-		return Info{
-			name,
-			fmt.Errorf("network is busy, with above %d bytes received (%v)", max, netAvg),
+		return fmt.Errorf("network is busy, with above %d bytes received (%v)", max, netAvg)
+	}
+	return nil
+}
+
+func network(conn *dbus.Conn, max uint64) Info {
+	const name string = "Network"
+
+	// retry if failed (6 retries max)
+	max_retry := 6
+
+	var err error
+	for range max_retry {
+		err = network_once(conn, max)
+		if err == nil {
+			break
 		}
+		// sleep for 3 seconds
+		time.Sleep(time.Second * 3)
 	}
 
 	return Info{
 		name,
-		nil,
+		err,
 	}
-
 }
 
 func memory(max int) Info {
