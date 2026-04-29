@@ -2,9 +2,14 @@
 Description=Universal Blue Update Oneshot Service
 StartLimitBurst=3
 StartLimitIntervalSec=600
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
+# Skips update when on a metered connection
+ExecCondition=/bin/bash -c '! nmcli -g GENERAL.METERED device show | grep -qi "^yes"'
+
 # DO NOT CHANGE ANYTHING BELOW UNLESS YOU KNOW WHAT YOU ARE DOING
 ExecStart=/usr/bin/uupd --log-level=debug --json
 # Restart on failure for edge cases like waking from suspend and wifi not connecting immediately
