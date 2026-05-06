@@ -21,4 +21,4 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           only-new-issues: true
-          version: v2.1.0
+          version: v2.12.2
