@@ -115,7 +115,7 @@ func (it *Incrementer) ReportStatusChange(title string, description string) {
 		)
 		return
 	}
-	// Only System updates have proper progress reporting
+	// Only System (Bootc) updates have proper progress reporting
 	if title == "System" {
 		it.PTracker.Tracker.UpdateTotal(100)
 	}
@@ -177,7 +177,7 @@ func (it *Incrementer) IncrementSection(err error) {
 		}
 	}
 
-	if int64(it.DoneIncrements+1) > int64(it.MaxIncrements) {
+	if int64(it.DoneIncrements) >= int64(it.MaxIncrements) {
 		return
 	}
 	it.DoneIncrements += 1
@@ -189,7 +189,7 @@ func (it *Incrementer) IncrementSection(err error) {
 }
 
 func (it *Incrementer) OverallPercent() float64 {
-	steps := ((float64(it.CurrentStep()+1) + it.PTracker.Progress/100.0) / float64(it.MaxIncrements+1)) * 100.0
+	steps := ((float64(it.CurrentStep()) + it.PTracker.Progress/100.0) / float64(it.MaxIncrements)) * 100.0
 	return math.Round(steps)
 }
 

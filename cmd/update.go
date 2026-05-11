@@ -137,8 +137,7 @@ func Update(cmd *cobra.Command, args []string) error {
 		totalSteps += mainSystemDriver.Steps()
 	}
 
-	// -1 because 0 index
-	tracker := percent.NewIncrementer(!disableProgress, totalSteps-1)
+	tracker := percent.NewIncrementer(!disableProgress, totalSteps)
 	if !disableProgress {
 		percent.ResetOscProgress()
 		go tracker.ProgressWriter.Render()
