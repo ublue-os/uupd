@@ -70,8 +70,6 @@ func IndeterminateIndicatorColoredDominoes(duration time.Duration, slashColor, b
 				colored.WriteString(text.Colors{slashColor}.Sprint(string(ch)))
 			case '\\':
 				colored.WriteString(text.Colors{backslashColor}.Sprint(string(ch)))
-			default:
-				colored.WriteRune(ch)
 			}
 		}
 		return IndeterminateIndicator{
@@ -157,9 +155,10 @@ func indeterminateIndicatorDominoes() IndeterminateIndicatorGenerator {
 	return func(maxLen int) IndeterminateIndicator {
 		currentPosition := nextPosition
 
-		if currentPosition == 0 {
+		switch currentPosition {
+		case 0:
 			direction = 1
-		} else if currentPosition == maxLen {
+		case maxLen:
 			direction = -1
 		}
 		nextPosition += direction
