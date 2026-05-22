@@ -19,7 +19,7 @@ jobs:
       tag: ${{ steps.release-please.outputs.tag_name }}
       upload_url: ${{ steps.release-please.outputs.upload_url }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
         id: release-please
         with:
           release-type: simple
@@ -42,7 +42,7 @@ jobs:
       # Build image using Buildah action
       - name: Build package using containerized build environment
         id: build_image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
         with:
           containerfiles: |
             ./Containerfile.builder
@@ -55,7 +55,7 @@ jobs:
             --target rpm
 
       - name: upload output artifacts as release artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ublue-updater-rpms
           path: output/
