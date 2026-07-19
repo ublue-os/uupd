@@ -33,7 +33,10 @@ type Tracker struct {
 	// conditions
 	Message string
 	// RemoveOnCompletion tells the Progress Bar to remove this tracker when
-	// it is done, instead of rendering a "completed" line
+	// it is done, instead of rendering a "completed" line. Note that done
+	// trackers are otherwise retained in memory until the Progress Writer is
+	// stopped; set this in long-running processes that append a very large
+	// number of trackers to avoid unbounded memory growth
 	RemoveOnCompletion bool
 	// Total should be set to the (expected) Total/Final value to be reached
 	Total int64
@@ -184,6 +187,16 @@ func (t *Tracker) SetValue(value int64) {
 	t.mutex.Unlock()
 }
 
+// setProgress updates the value and the minimum ETA in a single locked
+// operation; used by the render loop to update the overall tracker without
+// racing against readers like Value() and ETA().
+func (t *Tracker) setProgress(value int64, minETA time.Duration) {
+	t.mutex.Lock()
+	t.value = value
+	t.minETA = minETA
+	t.mutex.Unlock()
+}
+
 // Start starts the tracking for the case when DeferStart=false.
 func (t *Tracker) Start() {
 	if t.timeStart.IsZero() {
@@ -265,13 +278,17 @@ func (t *Tracker) valueAndTotal() (int64, int64) {
 	return value, total
 }
 
-// timeStartAndStop returns the start and stop times safely.
-func (t *Tracker) timeStartAndStop() (time.Time, time.Time) {
+// timeStartStopAndDone returns timeStart, timeStop, and done under a single
+// RLock so callers see a consistent snapshot — needed because an active→done
+// transition between separate reads would yield a non-zero timeStart with a
+// zero timeStop while done is true, breaking timeStop.Sub(timeStart).
+func (t *Tracker) timeStartStopAndDone() (time.Time, time.Time, bool) {
 	t.mutex.RLock()
 	timeStart := t.timeStart
 	timeStop := t.timeStop
+	done := t.done
 	t.mutex.RUnlock()
-	return timeStart, timeStop
+	return timeStart, timeStop, done
 }
 
 // timeStartValue returns the start time safely.
