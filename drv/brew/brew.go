@@ -60,7 +60,7 @@ func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, e
 		return &final_output, err
 	}
 
-	cli = []string{up.BrewPath, "upgrade"}
+	cli = []string{up.BrewPath, "upgrade", "-y"}
 	out, err = session.RunUID(up.Config.Logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
 	tmpout = CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Upgrade"
