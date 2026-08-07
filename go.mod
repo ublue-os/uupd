@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/jedib0t/go-pretty/v6 v6.8.3
-	github.com/shirou/gopsutil/v4 v4.26.4
+	github.com/shirou/gopsutil/v4 v4.26.7
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	golang.org/x/term v0.45.0
@@ -14,7 +14,7 @@ require (
 
 require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
-	github.com/ebitengine/purego v0.10.0 // indirect
+	github.com/ebitengine/purego v0.10.2 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
