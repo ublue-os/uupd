@@ -57,6 +57,14 @@ func RunUID(logger *slog.Logger, level slog.Level, uid int, command []string, en
 		"/usr/bin/pkexec",
 		"-u",
 		user.Username,
+		// pkexec canonicalizes the program path with realpath(3) before
+		// executing it; for shebang scripts the kernel then hands the
+		// interpreter the resolved path. Homebrew's bin/brew derives its
+		// prefix from $0, so resolving the bin/brew symlink to
+		// Homebrew/bin/brew makes brew see an empty Cellar and turns
+		// `brew upgrade` into a silent no-op. env(1) takes the hit
+		// instead: pkexec passes arguments through untouched.
+		"/usr/bin/env",
 	}
 	cmdArgs = append(cmdArgs, command...)
 
