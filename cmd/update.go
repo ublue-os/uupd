@@ -231,7 +231,7 @@ func Update(cmd *cobra.Command, args []string) error {
 		_ = session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
 
 		slog.Error("Updates finished with errors!")
-		return err
+		return fmt.Errorf("updates failed: %s", strings.Join(contexts, ", "))
 	}
 
 	slog.Info("Updates Completed Successfully")
