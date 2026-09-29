@@ -43,6 +43,20 @@ func Update(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Keep the system from suspending mid-update: on resume uupd carries on
+	// before the network is back, and the network-dependent modules fail.
+	// Not fatal when logind isn't available (containers, CI).
+	releaseInhibitor, err := session.InhibitSleep("uupd", "System update in progress")
+	if err != nil {
+		slog.Warn("Could not prevent sleep during the update", slog.Any("error", err))
+	} else {
+		defer func() {
+			if err := releaseInhibitor(); err != nil {
+				slog.Error("Failed releasing sleep inhibitor", slog.Any("error", err))
+			}
+		}()
+	}
+
 	hwCheck := conf.Checks.Hardware.Enable
 	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
