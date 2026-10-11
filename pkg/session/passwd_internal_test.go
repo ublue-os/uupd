@@ -18,8 +18,8 @@ func TestParsePasswdEntry(t *testing.T) {
 	}{
 		{
 			"regular entry",
-			"antonio:x:1000:1000:Antonio:/home/antonio:/bin/bash\n",
-			PasswdRecord{Name: "antonio", UID: 1000, GID: 1000, Home: "/home/antonio", Shell: "/bin/bash"},
+			"testuser:x:1000:1000:Test User:/home/testuser:/bin/bash\n",
+			PasswdRecord{Name: "testuser", UID: 1000, GID: 1000, Home: "/home/testuser", Shell: "/bin/bash"},
 		},
 		{
 			"dynamic userdb entry",

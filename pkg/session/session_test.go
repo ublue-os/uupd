@@ -104,7 +104,8 @@ func TestUpdateTargets(t *testing.T) {
 		record      session.PasswdRecord
 		expected    bool
 	}{
-		{"regular user", session.PasswdRecord{Name: "antonio", UID: 1000, GID: 1000, Home: "/home/antonio", Shell: "/bin/bash"}, true},
+		{"regular user", session.PasswdRecord{Name: "testuser", UID: 1000, GID: 1000, Home: "/home/testuser", Shell: "/bin/bash"}, true},
+		{"user under /var/home", session.PasswdRecord{Name: "testuser", UID: 1007, GID: 1000, Home: "/var/home/testuser", Shell: "/bin/bash"}, true},
 		{"root", session.PasswdRecord{Name: "root", UID: 0, GID: 0, Home: "/root", Shell: "/bin/bash"}, false},
 		{"no home", session.PasswdRecord{Name: "ghost", UID: 4242}, false},
 		{"home on tmpfs", session.PasswdRecord{Name: "tmp", UID: 1001, Home: "/tmp/user", Shell: "/bin/bash"}, false},
