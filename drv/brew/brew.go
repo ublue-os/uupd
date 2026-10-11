@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -48,7 +49,7 @@ func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, e
 	}
 
 	cli := []string{up.BrewPath, "update"}
-	out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
+	out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, up.BaseUserName, cli)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Update"
 	tmpout.Cli = cli
@@ -61,7 +62,7 @@ func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, e
 	}
 
 	cli = []string{up.BrewPath, "upgrade", "-y"}
-	out, err = session.RunUID(up.Config.Logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
+	out, err = session.RunAsUser(up.Config.Logger, slog.LevelDebug, up.BaseUserName, cli)
 	tmpout = CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Upgrade"
 	tmpout.Cli = cli
@@ -71,12 +72,13 @@ func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, e
 }
 
 type BrewUpdater struct {
-	Config     DriverConfiguration
-	BaseUser   int
-	BrewRepo   string
-	BrewPrefix string
-	BrewCellar string
-	BrewPath   string
+	Config       DriverConfiguration
+	BaseUser     int
+	BaseUserName string
+	BrewRepo     string
+	BrewPrefix   string
+	BrewCellar   string
+	BrewPath     string
 }
 
 func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) {
@@ -105,6 +107,13 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 		return up, err
 	}
 	up.BaseUser = uid
+
+	name, err := session.LookupUserName(uid)
+	if err != nil {
+		slog.Warn("Could not resolve brew owner name, falling back to uid", slog.Int("uid", uid), slog.Any("error", err))
+		name = strconv.Itoa(uid)
+	}
+	up.BaseUserName = name
 
 	return up, nil
 }

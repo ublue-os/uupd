@@ -86,7 +86,7 @@ func (up DistroboxUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutpu
 
 	tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
 	cli := []string{up.binaryPath, "upgrade", "-a"}
-	out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, 0, cli, nil)
+	out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, "root", cli)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = up.Config.Description
 	tmpout.Cli = cli
@@ -99,7 +99,7 @@ func (up DistroboxUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutpu
 		context := *up.Config.UserDescription + " " + user.Name
 		tracker.ReportStatusChange(up.Config.Title, *up.Config.UserDescription+" "+user.Name)
 		cli := []string{up.binaryPath, "upgrade", "-a"}
-		out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, user.UID, cli, nil)
+		out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, user.Name, cli)
 		tmpout = CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli
