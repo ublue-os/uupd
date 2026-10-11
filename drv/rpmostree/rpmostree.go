@@ -106,8 +106,6 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 		return true, nil
 	}
 
-	// Primary check: use rpm-ostree upgrade --check which detects both base
-	// image and layered package updates from all enabled repos.
 	cmd := exec.Command(up.BinaryPath, "upgrade", "--check", "--unchanged-exit-77")
 	out, err := cmd.CombinedOutput()
 
@@ -116,8 +114,6 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 			up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", false))
 			return false, nil
 		}
-		// If rpm-ostree upgrade --check fails (e.g. unsupported flag on older
-		// versions), fall back to skopeo-based base image digest comparison.
 		up.Config.Logger.Debug("rpm-ostree upgrade --check failed, falling back to skopeo", slog.Any("error", err))
 		return up.checkSkopeo()
 	}
@@ -126,10 +122,6 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 	return true, nil
 }
 
-// checkSkopeo is a fallback that compares the local base commit digest with the
-// remote container image digest via skopeo. This only detects base image changes,
-// not layered package updates, but provides a best-effort check when
-// rpm-ostree upgrade --check is unavailable.
 func (up RpmOstreeUpdater) checkSkopeo() (bool, error) {
 	cmd := exec.Command(up.BinaryPath, "status", "--json", "--booted")
 	out, err := cmd.CombinedOutput()
