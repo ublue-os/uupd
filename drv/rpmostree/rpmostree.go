@@ -106,45 +106,68 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 		return true, nil
 	}
 
+	// Primary check: use rpm-ostree upgrade --check which detects both base
+	// image and layered package updates from all enabled repos.
+	cmd := exec.Command(up.BinaryPath, "upgrade", "--check", "--unchanged-exit-77")
+	out, err := cmd.CombinedOutput()
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 77 {
+			up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", false))
+			return false, nil
+		}
+		// If rpm-ostree upgrade --check fails (e.g. unsupported flag on older
+		// versions), fall back to skopeo-based base image digest comparison.
+		up.Config.Logger.Debug("rpm-ostree upgrade --check failed, falling back to skopeo", slog.Any("error", err))
+		return up.checkSkopeo()
+	}
+
+	up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", true))
+	return true, nil
+}
+
+// checkSkopeo is a fallback that compares the local base commit digest with the
+// remote container image digest via skopeo. This only detects base image changes,
+// not layered package updates, but provides a best-effort check when
+// rpm-ostree upgrade --check is unavailable.
+func (up RpmOstreeUpdater) checkSkopeo() (bool, error) {
 	cmd := exec.Command(up.BinaryPath, "status", "--json", "--booted")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return true, fmt.Errorf("rpm-ostree exited with error: %v", err)
+		return true, fmt.Errorf("rpm-ostree exited with error: %w", err)
 	}
 	var status rpmOstreeStatus
 	err = json.Unmarshal(out, &status)
 	if err != nil {
-		return true, fmt.Errorf("unable to unmarshal rpm-ostree status: %v", err)
+		return true, fmt.Errorf("unable to unmarshal rpm-ostree status: %w", err)
 	}
 
 	ref, err := expandReference(status.Deployments[0].Reference)
 	if err != nil {
-		return true, fmt.Errorf("couldn't expand container reference: %v", err)
+		return true, fmt.Errorf("couldn't expand container reference: %w", err)
 	}
 	cmd = exec.Command(up.SkopeoPath, "inspect", ref)
 	out, err = cmd.CombinedOutput()
 	if err != nil {
-		return true, fmt.Errorf("running skopeo inspect failed: %v", err)
+		return true, fmt.Errorf("running skopeo inspect failed: %w", err)
 	}
 	var inspect skopeoInspect
 	err = json.Unmarshal(out, &inspect)
 	if err != nil {
-		return true, fmt.Errorf("couldn't unmarshal skopeo inspect: %v", err)
+		return true, fmt.Errorf("couldn't unmarshal skopeo inspect: %w", err)
 	}
 
 	updateNecessary := inspect.Digest != status.Deployments[0].Meta.Digest
-	up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", updateNecessary))
+	up.Config.Logger.Debug("Executed skopeo fallback check", slog.Bool("update", updateNecessary))
 	return updateNecessary, nil
 }
 
 func expandReference(s string) (string, error) {
-	// ref := strings.SplitN(s, ":", 2)
 	_, url, found := strings.Cut(s, ":")
 	if !found {
 		return "", fmt.Errorf("Cannot expand reference: Malformed container reference: %s", s)
 	}
 	protocol := "docker://"
-	// if the url doesn't have to the protocol (implicit)
 	if !strings.Contains(url, protocol) {
 		url = protocol + url
 	}
