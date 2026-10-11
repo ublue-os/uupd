@@ -89,7 +89,7 @@ func (up FlatpakUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput,
 		context := *up.Config.UserDescription + " " + user.Name
 		tracker.ReportStatusChange(up.Config.Title, context)
 		cli := []string{up.binaryPath, "update", "-y"}
-		out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, user.UID, cli, nil)
+		out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, user.Name, cli)
 		tmpout = CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli

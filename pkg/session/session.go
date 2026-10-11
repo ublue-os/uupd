@@ -7,10 +7,13 @@ import (
 	"io"
 	"log/slog"
 	"os/exec"
-	osUser "os/user"
+	"strings"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 )
+
+const notifyTimeout = 15 * time.Second
 
 type User struct {
 	UID  int
@@ -26,7 +29,8 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 
 	stdout, _ := command.StdoutPipe()
 	stderr, _ := command.StderrPipe()
-	multiReader := io.MultiReader(stdout, stderr)
+	var output strings.Builder
+	multiReader := io.TeeReader(io.MultiReader(stdout, stderr), &output)
 	actualLogger := slog.Default()
 	err := command.Start()
 	if err != nil {
@@ -41,24 +45,18 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 	err = command.Wait()
 	if err != nil {
 		actualLogger.Warn("Error occurred while waiting for external command", slog.Any("error", err))
-		return []byte{}, err
+		return []byte(output.String()), err
 	}
 
-	return scanner.Bytes(), scanner.Err()
+	return []byte(output.String()), scanner.Err()
 }
 
-func RunUID(logger *slog.Logger, level slog.Level, uid int, command []string, env map[string]string) ([]byte, error) {
-	user, err := osUser.LookupId(fmt.Sprintf("%d", uid))
-
-	if err != nil {
-		return []byte{}, fmt.Errorf("failed to lookup UID: %d, returned error: %v", uid, err)
-	}
-	cmdArgs := []string{
+func RunAsUser(logger *slog.Logger, level slog.Level, name string, command []string) ([]byte, error) {
+	cmdArgs := append([]string{
 		"/usr/bin/pkexec",
 		"-u",
-		user.Username,
-	}
-	cmdArgs = append(cmdArgs, command...)
+		name,
+	}, command...)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 
@@ -102,20 +100,54 @@ func ListUsers() ([]User, error) {
 		if err != nil {
 			return nil, err
 		}
-		if parsed.UID == 0 {
+		users = append(users, parsed)
+	}
+
+	return filterUsers(users, slog.Default()), nil
+}
+
+func filterUsers(users []User, logger *slog.Logger) []User {
+	updateTargets := make([]User, 0, len(users))
+
+	for _, user := range users {
+		if user.UID == 0 {
 			continue
 		}
 
-		users = append(users, parsed)
+		record, err := LookupPasswd(user.UID)
+		if err != nil {
+			logger.Warn("Skipping user that cannot be resolved, this is not a failed update",
+				slog.Int("uid", user.UID),
+				slog.String("name", user.Name),
+				slog.Any("error", err),
+			)
+			continue
+		}
+
+		if !IsUpdateTarget(record) {
+			logger.Debug("Skipping non-interactive user",
+				slog.Int("uid", user.UID),
+				slog.String("name", user.Name),
+				slog.String("home", record.Home),
+			)
+			continue
+		}
+
+		updateTargets = append(updateTargets, user)
 	}
-	return users, nil
+
+	return updateTargets
 }
 
 func Notify(users []User, summary string, body string, urgency string) error {
 	for _, user := range users {
+		ctx, cancel := context.WithTimeout(context.Background(), notifyTimeout)
+		cmd := exec.CommandContext(ctx, "/usr/bin/machinectl", "shell", fmt.Sprintf("%d@", user.UID), "/usr/bin/notify-send", "--urgency", urgency, "--app-name", "uupd", summary, body)
 		// we don't care if these exit
-		cmd := exec.Command("/usr/bin/machinectl", "shell", fmt.Sprintf("%d@", user.UID), "/usr/bin/notify-send", "--urgency", urgency, "--app-name", "uupd", summary, body)
-		_ = cmd.Run()
+		if err := cmd.Run(); err != nil {
+			slog.Debug("Failed sending notification to user", slog.Int("uid", user.UID), slog.Any("error", err))
+		}
+		cancel()
 	}
 	return nil
 }
