@@ -145,19 +145,55 @@ func TestCheckUpdatesAvailable(t *testing.T) {
 	}
 }
 
-func TestCheckNoUpdates(t *testing.T) {
-	binary := writeFakeBinary(t, "", 77)
+func TestCheckNoUpdatesFallbackToSkopeo(t *testing.T) {
+	statusJSON := `{
+    "deployments": [
+        {
+            "timestamp": 1700000000,
+            "base-commit-meta": {"ostree.manifest-digest": "sha256:same"},
+            "container-image-reference": "ostree-image-signed:docker://ghcr.io/ublue-os/test:stable"
+        }
+    ]
+}`
+	skopeoOutput := `{"Digest": "sha256:same"}`
+	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 77, statusJSON, skopeoOutput, 0)
 	updater := InitBaseConfig()
 	updater.Config.DryRun = false
-	updater.BinaryPath = binary
-	updater.SkopeoPath = "/bin/true"
+	updater.BinaryPath = rpmOstreeBin
+	updater.SkopeoPath = skopeoBin
 
 	updateAvailable, err := updater.Check()
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 	if updateAvailable {
-		t.Fatalf("Expected no updates, got updateAvailable=true")
+		t.Fatalf("Expected no updates when both --check (exit77) and skopeo agree")
+	}
+}
+
+func TestCheckExit77SkopeoDetectsBaseImageChange(t *testing.T) {
+	statusJSON := `{
+    "deployments": [
+        {
+            "timestamp": 1700000000,
+            "base-commit-meta": {"ostree.manifest-digest": "sha256:old"},
+            "container-image-reference": "ostree-image-signed:docker://ghcr.io/ublue-os/test:stable"
+        }
+    ]
+}`
+	skopeoOutput := `{"Digest": "sha256:new"}`
+	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 77, statusJSON, skopeoOutput, 0)
+	updater := InitBaseConfig()
+	updater.Config.DryRun = false
+	updater.BinaryPath = rpmOstreeBin
+	updater.SkopeoPath = skopeoBin
+
+	updateAvailable, err := updater.Check()
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if !updateAvailable {
+		t.Fatalf("Expected updates: --check exited 77 but skopeo detected base image change")
 	}
 }
 

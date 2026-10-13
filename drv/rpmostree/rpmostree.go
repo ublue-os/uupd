@@ -109,17 +109,18 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 	cmd := exec.Command(up.BinaryPath, "upgrade", "--check", "--unchanged-exit-77")
 	out, err := cmd.CombinedOutput()
 
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 77 {
-			up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", false))
-			return false, nil
-		}
-		up.Config.Logger.Debug("rpm-ostree upgrade --check failed, falling back to skopeo", slog.Any("error", err))
-		return up.checkSkopeo()
+	if err == nil {
+		up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", true))
+		return true, nil
 	}
 
-	up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", true))
-	return true, nil
+	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 77 {
+		up.Config.Logger.Debug("rpm-ostree --check reported no updates, verifying via skopeo")
+	} else {
+		up.Config.Logger.Debug("rpm-ostree upgrade --check failed, falling back to skopeo", slog.Any("error", err))
+	}
+
+	return up.checkSkopeo()
 }
 
 func (up RpmOstreeUpdater) checkSkopeo() (bool, error) {
