@@ -197,79 +197,18 @@ func TestCheckExit77SkopeoDetectsBaseImageChange(t *testing.T) {
 	}
 }
 
-func TestCheckFallbackToSkopeoWithUpdate(t *testing.T) {
-	statusJSON := `{
-    "deployments": [
-        {
-            "timestamp": 1700000000,
-            "base-commit-meta": {"ostree.manifest-digest": "sha256:old"},
-            "container-image-reference": "ostree-image-signed:docker://ghcr.io/ublue-os/test:stable"
-        }
-    ]
-}`
-	skopeoOutput := `{"Digest": "sha256:new"}`
-	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 1, statusJSON, skopeoOutput, 0)
+func TestCheckErrorReturnsTrue(t *testing.T) {
+	binary := writeFakeBinary(t, "", 1)
 	updater := InitBaseConfig()
 	updater.Config.DryRun = false
-	updater.BinaryPath = rpmOstreeBin
-	updater.SkopeoPath = skopeoBin
+	updater.BinaryPath = binary
+	updater.SkopeoPath = "/bin/true"
 
 	updateAvailable, err := updater.Check()
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+	if err == nil {
+		t.Fatalf("Expected error when rpm-ostree --check fails with non-77 exit code")
 	}
 	if !updateAvailable {
-		t.Fatalf("Expected updates to be available via skopeo fallback")
-	}
-}
-
-func TestCheckFallbackToSkopeoNoUpdate(t *testing.T) {
-	statusJSON := `{
-    "deployments": [
-        {
-            "timestamp": 1700000000,
-            "base-commit-meta": {"ostree.manifest-digest": "sha256:same"},
-            "container-image-reference": "ostree-image-signed:docker://ghcr.io/ublue-os/test:stable"
-        }
-    ]
-}`
-	skopeoOutput := `{"Digest": "sha256:same"}`
-	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 1, statusJSON, skopeoOutput, 0)
-	updater := InitBaseConfig()
-	updater.Config.DryRun = false
-	updater.BinaryPath = rpmOstreeBin
-	updater.SkopeoPath = skopeoBin
-
-	updateAvailable, err := updater.Check()
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-	if updateAvailable {
-		t.Fatalf("Expected no updates via skopeo fallback")
-	}
-}
-
-func TestCheckFallbackToSkopeoError(t *testing.T) {
-	statusJSON := `{
-    "deployments": [
-        {
-            "timestamp": 1700000000,
-            "base-commit-meta": {"ostree.manifest-digest": "sha256:old"},
-            "container-image-reference": "ostree-image-signed:docker://ghcr.io/ublue-os/test:stable"
-        }
-    ]
-}`
-	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 1, statusJSON, `{"Digest": "sha256:new"}`, 0)
-	updater := InitBaseConfig()
-	updater.Config.DryRun = false
-	updater.BinaryPath = rpmOstreeBin
-	updater.SkopeoPath = skopeoBin
-
-	updateAvailable, err := updater.Check()
-	if err != nil {
-		t.Fatalf("Did not expect error, got: %v", err)
-	}
-	if !updateAvailable {
-		t.Fatalf("Expected updateAvailable=true when skopeo detects digest mismatch")
+		t.Fatalf("Expected updateAvailable=true on check error (safe default)")
 	}
 }

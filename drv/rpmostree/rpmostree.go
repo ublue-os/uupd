@@ -116,11 +116,10 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 
 	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 77 {
 		up.Config.Logger.Debug("rpm-ostree --check reported no updates, verifying via skopeo")
-	} else {
-		up.Config.Logger.Debug("rpm-ostree upgrade --check failed, falling back to skopeo", slog.Any("error", err))
+		return up.checkSkopeo()
 	}
 
-	return up.checkSkopeo()
+	return true, fmt.Errorf("rpm-ostree upgrade --check failed: %w", err)
 }
 
 func (up RpmOstreeUpdater) checkSkopeo() (bool, error) {
