@@ -106,45 +106,60 @@ func (up RpmOstreeUpdater) Check() (bool, error) {
 		return true, nil
 	}
 
+	cmd := exec.Command(up.BinaryPath, "upgrade", "--check", "--unchanged-exit-77")
+	out, err := cmd.CombinedOutput()
+
+	if err == nil {
+		up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", true))
+		return true, nil
+	}
+
+	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 77 {
+		up.Config.Logger.Debug("rpm-ostree --check reported no updates, verifying via skopeo")
+		return up.checkSkopeo()
+	}
+
+	return true, fmt.Errorf("rpm-ostree upgrade --check failed: %w", err)
+}
+
+func (up RpmOstreeUpdater) checkSkopeo() (bool, error) {
 	cmd := exec.Command(up.BinaryPath, "status", "--json", "--booted")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return true, fmt.Errorf("rpm-ostree exited with error: %v", err)
+		return true, fmt.Errorf("rpm-ostree exited with error: %w", err)
 	}
 	var status rpmOstreeStatus
 	err = json.Unmarshal(out, &status)
 	if err != nil {
-		return true, fmt.Errorf("unable to unmarshal rpm-ostree status: %v", err)
+		return true, fmt.Errorf("unable to unmarshal rpm-ostree status: %w", err)
 	}
 
 	ref, err := expandReference(status.Deployments[0].Reference)
 	if err != nil {
-		return true, fmt.Errorf("couldn't expand container reference: %v", err)
+		return true, fmt.Errorf("couldn't expand container reference: %w", err)
 	}
 	cmd = exec.Command(up.SkopeoPath, "inspect", ref)
 	out, err = cmd.CombinedOutput()
 	if err != nil {
-		return true, fmt.Errorf("running skopeo inspect failed: %v", err)
+		return true, fmt.Errorf("running skopeo inspect failed: %w", err)
 	}
 	var inspect skopeoInspect
 	err = json.Unmarshal(out, &inspect)
 	if err != nil {
-		return true, fmt.Errorf("couldn't unmarshal skopeo inspect: %v", err)
+		return true, fmt.Errorf("couldn't unmarshal skopeo inspect: %w", err)
 	}
 
 	updateNecessary := inspect.Digest != status.Deployments[0].Meta.Digest
-	up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", updateNecessary))
+	up.Config.Logger.Debug("Executed skopeo fallback check", slog.Bool("update", updateNecessary))
 	return updateNecessary, nil
 }
 
 func expandReference(s string) (string, error) {
-	// ref := strings.SplitN(s, ":", 2)
 	_, url, found := strings.Cut(s, ":")
 	if !found {
 		return "", fmt.Errorf("Cannot expand reference: Malformed container reference: %s", s)
 	}
 	protocol := "docker://"
-	// if the url doesn't have to the protocol (implicit)
 	if !strings.Contains(url, protocol) {
 		url = protocol + url
 	}
