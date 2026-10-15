@@ -138,16 +138,21 @@ func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, 
 
 func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slog.Logger, level slog.Level) {
 	for scanner.Scan() {
-
-		logger.Log(context.TODO(), level, scanner.Text())
 		var progress BootcProgress
 
 		err := json.Unmarshal(scanner.Bytes(), &progress)
 
 		if err != nil {
+			logger.Log(context.TODO(), level, "",
+				slog.String("raw_progress", scanner.Text()),
+				slog.Any("error", err),
+			)
 			continue
 		}
-		logger.Log(context.TODO(), level, "scanned progress", slog.Any("progress_struct", progress))
+		logger.Log(context.TODO(), level, "",
+			slog.String("raw_progress", scanner.Text()),
+			slog.Any("progress_struct", progress),
+		)
 
 		stageInfo, exists := PROGRESS_STAGES[progress.Task]
 
