@@ -83,18 +83,17 @@ func (up FlatpakUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput,
 	tmpout.Failure = err != nil
 	finalOutput = append(finalOutput, *tmpout)
 
-	err = nil
 	for _, user := range up.users {
-		tracker.IncrementSection(err)
 		context := *up.Config.UserDescription + " " + user.Name
 		tracker.ReportStatusChange(up.Config.Title, context)
-		cli := []string{up.binaryPath, "update", "-y"}
+		cli := []string{up.binaryPath, "update", "-y", "--noninteractive"}
 		out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, user.Name, cli)
-		tmpout = CommandOutput{}.New(out, err)
+		tmpout := CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli
 		tmpout.Failure = err != nil
 		finalOutput = append(finalOutput, *tmpout)
+		tracker.IncrementSection(err)
 	}
 	return &finalOutput, nil
 }

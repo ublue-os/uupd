@@ -8,16 +8,51 @@ import (
 	"log/slog"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/godbus/dbus/v5"
 )
 
-const notifyTimeout = 15 * time.Second
+const (
+	notifyTimeout = 15 * time.Second
+
+	envPath = "/usr/bin/env"
+
+	maxLogLineSize = 1024 * 1024
+)
 
 type User struct {
 	UID  int
 	Name string
+}
+
+type syncWriter struct {
+	mutex    sync.Mutex
+	contents strings.Builder
+}
+
+func (writer *syncWriter) Write(data []byte) (int, error) {
+	writer.mutex.Lock()
+	defer writer.mutex.Unlock()
+	return writer.contents.Write(data)
+}
+
+func (writer *syncWriter) String() string {
+	writer.mutex.Lock()
+	defer writer.mutex.Unlock()
+	return writer.contents.String()
+}
+
+func drainLog(logger *slog.Logger, level slog.Level, reader io.Reader, output io.Writer) {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxLogLineSize)
+	for scanner.Scan() {
+		line := scanner.Text()
+		logger.Log(context.TODO(), level, line)
+		_, _ = fmt.Fprintln(output, line)
+	}
+	_, _ = io.Copy(output, reader)
 }
 
 // Runs any specified Command while logging it to the logger
@@ -27,36 +62,53 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 		return command.CombinedOutput()
 	}
 
-	stdout, _ := command.StdoutPipe()
-	stderr, _ := command.StderrPipe()
-	var output strings.Builder
-	multiReader := io.TeeReader(io.MultiReader(stdout, stderr), &output)
-	actualLogger := slog.Default()
-	err := command.Start()
+	stdout, err := command.StdoutPipe()
 	if err != nil {
+		return nil, err
+	}
+	stderr, err := command.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	actualLogger := slog.Default()
+	if err := command.Start(); err != nil {
 		actualLogger.Warn("Error occurred starting external command", slog.Any("error", err))
 		return []byte{}, err
 	}
-	scanner := bufio.NewScanner(multiReader)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		actualLogger.Log(context.TODO(), level, scanner.Text())
-	}
+
+	output := &syncWriter{}
+	var drains sync.WaitGroup
+	drains.Add(2)
+	go func() {
+		defer drains.Done()
+		drainLog(actualLogger, level, stdout, output)
+	}()
+	go func() {
+		defer drains.Done()
+		drainLog(actualLogger, level, stderr, output)
+	}()
+	drains.Wait()
+
 	err = command.Wait()
 	if err != nil {
 		actualLogger.Warn("Error occurred while waiting for external command", slog.Any("error", err))
-		return []byte(output.String()), err
 	}
 
-	return []byte(output.String()), scanner.Err()
+	return []byte(output.String()), err
 }
 
-func RunAsUser(logger *slog.Logger, level slog.Level, name string, command []string) ([]byte, error) {
-	cmdArgs := append([]string{
+func pkexecArgs(name string, command []string) []string {
+	return append([]string{
 		"/usr/bin/pkexec",
 		"-u",
 		name,
+		envPath,
 	}, command...)
+}
+
+func RunAsUser(logger *slog.Logger, level slog.Level, name string, command []string) ([]byte, error) {
+	cmdArgs := pkexecArgs(name, command)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 
