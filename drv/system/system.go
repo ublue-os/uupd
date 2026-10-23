@@ -139,7 +139,10 @@ func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, 
 func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slog.Logger, level slog.Level) {
 	for scanner.Scan() {
 
-		logger.Log(context.TODO(), level, scanner.Text())
+		logger.Log(context.TODO(), level, "Command output",
+			slog.String("status", "running"),
+			slog.String("output", scanner.Text()),
+		)
 		var progress BootcProgress
 
 		err := json.Unmarshal(scanner.Bytes(), &progress)

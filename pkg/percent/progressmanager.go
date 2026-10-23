@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
@@ -22,6 +23,7 @@ type Incrementer struct {
 	ProgressEnabled bool
 	ProgressWriter  progress.Writer
 	PTracker        StepTracker
+	currentModule   string
 }
 
 type StepTracker struct {
@@ -105,7 +107,17 @@ func NewProgressWriter() progress.Writer {
 
 func (it *Incrementer) ReportStatusChange(title string, description string) {
 	if !it.ProgressEnabled {
+		status := "running"
+		output := fmt.Sprintf("Updating %s (%s)", title, description)
+		if it.currentModule != title {
+			status = "starting"
+			output = fmt.Sprintf("%s module is starting.", title)
+			it.currentModule = title
+		}
 		slog.Info("Updating",
+			slog.String("module", strings.ToLower(title)),
+			slog.String("status", status),
+			slog.String("output", output),
 			slog.String("title", title),
 			slog.String("description", description),
 			slog.Int("progress", it.CurrentStep()),
@@ -160,11 +172,10 @@ func NewIncrementer(progressEnabled bool, max int) Incrementer {
 		pw.AppendTracker(tracker.Tracker)
 	}
 	return Incrementer{
-		0,
-		max,
-		progressEnabled,
-		pw,
-		tracker,
+		MaxIncrements:   max,
+		ProgressEnabled: progressEnabled,
+		ProgressWriter:  pw,
+		PTracker:        tracker,
 	}
 }
 
