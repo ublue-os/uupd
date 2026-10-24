@@ -237,6 +237,17 @@ func TestUpdateErrorHintNetwork(t *testing.T) {
 	}
 }
 
+func TestUpdateErrorHintChecksumPriority(t *testing.T) {
+	externalOutput := `ERROR: failed to fetch: invalid checksum
+    Error summary: Command completed with status 1
+    Status: error: rpm-ostree failed: unknown
+`
+	hint := rpmostree.ClassifyUpdateError(externalOutput)
+	if hint != "Invalid checksum while downloading. The update data may be corrupted; try again." {
+		t.Fatalf("Expected checksum hint, got: %s", hint)
+	}
+}
+
 func TestUpdateErrorHintNotFound(t *testing.T) {
 	externalOutput := `ERROR: something else happened
     Error summary: Command completed with status 1
