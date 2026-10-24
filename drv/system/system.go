@@ -15,6 +15,7 @@ import (
 	. "github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/rpmostree"
 	appConfig "github.com/ublue-os/uupd/pkg/config"
+	appLogging "github.com/ublue-os/uupd/pkg/logging"
 	"github.com/ublue-os/uupd/pkg/percent"
 )
 
@@ -137,9 +138,10 @@ func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, 
 }
 
 func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slog.Logger, level slog.Level) {
+	outputLevel := appLogging.CommandOutputLevel(logger, level)
 	for scanner.Scan() {
 
-		logger.Log(context.TODO(), level, "Command output",
+		logger.Log(context.TODO(), outputLevel, "Command output",
 			slog.String("status", "running"),
 			slog.String("output", scanner.Text()),
 		)

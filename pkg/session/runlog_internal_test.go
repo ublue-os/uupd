@@ -1,6 +1,9 @@
 package session
 
 import (
+	"bytes"
+	"encoding/json"
+	"log/slog"
 	"os/exec"
 	"strings"
 	"testing"
@@ -114,6 +117,57 @@ func TestRunLogHandlesMissingBinary(t *testing.T) {
 
 	if _, err := runLogWithDeadline(t, command, 30*time.Second); err == nil {
 		t.Fatal("Expected an error for a missing binary")
+	}
+}
+
+func TestRunLogEmitsCommandOutputAtInfoLevelForJSONLogging(t *testing.T) {
+	t.Parallel()
+	buffer := &bytes.Buffer{}
+	logger := slog.New(slog.NewJSONHandler(buffer, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	command := exec.Command("/bin/sh", "-c", "echo visible-in-json")
+
+	if _, err := RunLog(logger, slog.LevelDebug, command); err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	var records []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(buffer.String()), "\n") {
+		if line == "" {
+			continue
+		}
+		var record map[string]any
+		if err := json.Unmarshal([]byte(line), &record); err != nil {
+			t.Fatalf("Failed decoding log record %q: %v", line, err)
+		}
+		records = append(records, record)
+	}
+
+	for _, record := range records {
+		if record["output"] == "visible-in-json" {
+			if record["status"] != "running" {
+				t.Fatalf("Expected a running status, got %v", record)
+			}
+			if record["level"] != "INFO" {
+				t.Fatalf("Expected command output at info level, got %v", record)
+			}
+			return
+		}
+	}
+	t.Fatalf("Expected command output in the JSON logs, got %v", records)
+}
+
+func TestRunLogKeepsCommandOutputAtDebugLevelForTextLogging(t *testing.T) {
+	t.Parallel()
+	buffer := &bytes.Buffer{}
+	logger := slog.New(slog.NewTextHandler(buffer, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	command := exec.Command("/bin/sh", "-c", "echo hidden-without-debug")
+
+	if _, err := RunLog(logger, slog.LevelDebug, command); err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if strings.Contains(buffer.String(), "hidden-without-debug") {
+		t.Fatalf("Expected command output to stay at debug level for text logs, got %q", buffer.String())
 	}
 }
 

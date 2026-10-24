@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/godbus/dbus/v5"
+
+	appLogging "github.com/ublue-os/uupd/pkg/logging"
 )
 
 const (
@@ -64,6 +66,10 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 	if logger == nil {
 		return command.CombinedOutput()
 	}
+
+	// Command output is logged at debug level for text output, but JSON
+	// consumers need it with the default log level, so promote it there.
+	level = appLogging.CommandOutputLevel(logger, level)
 
 	stdout, err := command.StdoutPipe()
 	if err != nil {

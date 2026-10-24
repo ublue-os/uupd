@@ -26,6 +26,25 @@ func StrToLogLevel(logLevel string) (slog.Leveler, error) {
 	return logLevels[logLevel], nil
 }
 
+// CommandOutputLevel returns the level that command output should be logged at.
+// JSON consumers rely on these records, so they are promoted to info level when
+// the logger emits JSON (the default log level is info). Plain text logging
+// keeps them at the requested level, usually debug.
+func CommandOutputLevel(logger *slog.Logger, level slog.Level) slog.Level {
+	if level == slog.LevelDebug && isJSONLogger(logger) {
+		return slog.LevelInfo
+	}
+	return level
+}
+
+func isJSONLogger(logger *slog.Logger) bool {
+	if logger == nil {
+		return false
+	}
+	_, ok := logger.Handler().(*slog.JSONHandler)
+	return ok
+}
+
 func SetupAppLogger(writer *os.File, logLevel slog.Leveler, verbose bool) slog.Handler {
 	if verbose {
 		return slog.NewJSONHandler(writer, &slog.HandlerOptions{

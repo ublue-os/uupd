@@ -88,6 +88,38 @@ func TestRunModuleStructuredOutput(t *testing.T) {
 	}
 }
 
+func TestLogModuleFailureIncludesContext(t *testing.T) {
+	buffer := captureLogs(t)
+
+	logModuleFailure(generic.CommandOutput{
+		Module:   "flatpak",
+		Context:  "Apps for User: alice",
+		Failure:  true,
+		ExitCode: 1,
+		Stdout:   "error: Unable to update application",
+		Cli:      []string{"/usr/bin/flatpak", "update", "-y", "--noninteractive"},
+	})
+
+	records := decodeLogs(t, buffer)
+	if len(records) != 1 {
+		t.Fatalf("Expected one failure record, got %v", records)
+	}
+
+	record := records[0]
+	if record["module"] != "flatpak" {
+		t.Fatalf("Expected module \"flatpak\", got %v", record)
+	}
+	if record["context"] != "Apps for User: alice" {
+		t.Fatalf("Expected the context to identify the failing update, got %v", record)
+	}
+	if record["status"] != "failed" {
+		t.Fatalf("Expected status \"failed\", got %v", record)
+	}
+	if record["exit_code"] != float64(1) {
+		t.Fatalf("Expected exit code 1, got %v", record)
+	}
+}
+
 func TestRunModuleReportsCommandExitCode(t *testing.T) {
 	buffer := captureLogs(t)
 	tracker := percent.NewIncrementer(false, 1)

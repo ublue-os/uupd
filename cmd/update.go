@@ -66,6 +66,17 @@ func runModule(
 	return err
 }
 
+func logModuleFailure(output drv.CommandOutput) {
+	slog.Error("module_fail",
+		slog.String("module", output.Module),
+		slog.String("context", output.Context),
+		slog.String("status", "failed"),
+		slog.Int("exit_code", output.ExitCode),
+		slog.String("output", output.Stdout),
+		slog.String("cli", strings.Join(output.Cli, " ")),
+	)
+}
+
 func Update(cmd *cobra.Command, args []string) error {
 	conf := config.Get()
 	modules := conf.Modules
@@ -235,6 +246,7 @@ func Update(cmd *cobra.Command, args []string) error {
 		for _, output := range outputs {
 			slog.Info(output.Context,
 				slog.String("module", output.Module),
+				slog.String("context", output.Context),
 				slog.String("status", "finished"),
 				slog.Int("exit_code", output.ExitCode),
 				slog.String("output", output.Stdout),
@@ -256,13 +268,7 @@ func Update(cmd *cobra.Command, args []string) error {
 		slog.Warn("Exited with failed updates.")
 
 		for _, output := range failures {
-			slog.Error("module_fail",
-				slog.String("module", output.Module),
-				slog.String("status", "failed"),
-				slog.Int("exit_code", output.ExitCode),
-				slog.String("output", output.Stdout),
-				slog.String("cli", strings.Join(output.Cli, " ")),
-			)
+			logModuleFailure(output)
 		}
 		_ = session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
 
