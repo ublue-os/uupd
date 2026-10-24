@@ -212,3 +212,49 @@ func TestCheckErrorReturnsTrue(t *testing.T) {
 		t.Fatalf("Expected updateAvailable=true on check error (safe default)")
 	}
 }
+
+func TestUpdateErrorHintSpace(t *testing.T) {
+	externalOutput := `ERROR: no space left on device while writing to /var/cache/dnf
+    Error summary: Command completed with status 1
+    Status: error: rpm-ostree failed: unknown
+    Writing /etc/yum.repos.d/50-ci-repositories.repo
+    Cleaning up /var/cache/dnf
+`
+	hint := rpmostree.ClassifyUpdateError(externalOutput)
+	if hint != "Ran out of disk space during the update. Free up storage and try again." {
+		t.Fatalf("Expected storage hint, got: %s", hint)
+	}
+}
+
+func TestUpdateErrorHintNetwork(t *testing.T) {
+	externalOutput := `ERROR: failed to fetch https://example.com/repo/data.tar.xz: Connection timed out
+    Error summary: Command completed with status 1
+    Status: error: rpm-ostree failed: unknown
+`
+	hint := rpmostree.ClassifyUpdateError(externalOutput)
+	if hint != "Failed to fetch update data. Check your network connection and try again." {
+		t.Fatalf("Expected network hint, got: %s", hint)
+	}
+}
+
+func TestUpdateErrorHintChecksumPriority(t *testing.T) {
+	externalOutput := `ERROR: failed to fetch: invalid checksum
+    Error summary: Command completed with status 1
+    Status: error: rpm-ostree failed: unknown
+`
+	hint := rpmostree.ClassifyUpdateError(externalOutput)
+	if hint != "Invalid checksum while downloading. The update data may be corrupted; try again." {
+		t.Fatalf("Expected checksum hint, got: %s", hint)
+	}
+}
+
+func TestUpdateErrorHintNotFound(t *testing.T) {
+	externalOutput := `ERROR: something else happened
+    Error summary: Command completed with status 1
+    Status: error: rpm-ostree failed: unknown
+`
+	hint := rpmostree.ClassifyUpdateError(externalOutput)
+	if hint != "" {
+		t.Fatalf("Expected no hint for unknown error, got: %s", hint)
+	}
+}
