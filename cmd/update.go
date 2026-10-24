@@ -22,6 +22,61 @@ import (
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
+func runModule(
+	title string,
+	tracker *percent.Incrementer,
+	outputs *[]drv.CommandOutput,
+	update func(*percent.Incrementer) (*[]drv.CommandOutput, error),
+) error {
+	module := strings.ToLower(title)
+
+	out, err := update(tracker)
+	for i := range *out {
+		(*out)[i].Module = module
+	}
+	*outputs = append(*outputs, *out...)
+
+	exitCode := 0
+	for _, output := range *out {
+		if output.ExitCode != 0 {
+			exitCode = output.ExitCode
+			break
+		}
+	}
+	if err != nil && exitCode == 0 {
+		exitCode = 1
+	}
+
+	if !tracker.ProgressEnabled {
+		message := fmt.Sprintf("%s module has completed.", title)
+		log := slog.Info
+		if exitCode != 0 {
+			message = fmt.Sprintf("%s module has failed.", title)
+			log = slog.Error
+		}
+		log(message,
+			slog.String("module", module),
+			slog.String("status", "finished"),
+			slog.Int("exit_code", exitCode),
+			slog.String("output", message),
+		)
+	}
+
+	tracker.IncrementSection(err)
+	return err
+}
+
+func logModuleFailure(output drv.CommandOutput) {
+	slog.Error("module_fail",
+		slog.String("module", output.Module),
+		slog.String("context", output.Context),
+		slog.String("status", "failed"),
+		slog.Int("exit_code", output.ExitCode),
+		slog.String("output", output.Stdout),
+		slog.String("cli", strings.Join(output.Cli, " ")),
+	)
+}
+
 func Update(cmd *cobra.Command, args []string) error {
 	conf := config.Get()
 	modules := conf.Modules
@@ -158,42 +213,26 @@ func Update(cmd *cobra.Command, args []string) error {
 		slog.Warn(OUTDATED_WARNING)
 	}
 
-	// This section is ugly but we cant really do much about it.
-	// Using interfaces doesn't preserve the "Config" struct state and I dont know any other way to make this work without cursed workarounds.
-
 	if mainSystemDriverConfig.Enabled {
-		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module_name", mainSystemDriverConfig.Title), slog.Any("module_configuration", mainSystemDriverConfig))
+		slog.Debug(fmt.Sprintf("%s module", mainSystemDriverConfig.Title), slog.String("module", strings.ToLower(mainSystemDriverConfig.Title)), slog.Any("module_configuration", mainSystemDriverConfig))
 		tracker.ReportStatusChange(mainSystemDriverConfig.Title, mainSystemDriverConfig.Description)
-		var out *[]drv.CommandOutput
-		// Pass in the tracker manually because setting it in the config is less possible
-		out, err = mainSystemDriver.Update(&tracker)
-		outputs = append(outputs, *out...)
-		tracker.IncrementSection(err)
+		_ = runModule(mainSystemDriverConfig.Title, &tracker, &outputs, mainSystemDriver.Update)
 	}
 
 	if brewUpdater.Config.Enabled {
-		slog.Debug(fmt.Sprintf("%s module", brewUpdater.Config.Title), slog.String("module_name", brewUpdater.Config.Title), slog.Any("module_configuration", brewUpdater.Config))
+		slog.Debug(fmt.Sprintf("%s module", brewUpdater.Config.Title), slog.String("module", strings.ToLower(brewUpdater.Config.Title)), slog.Any("module_configuration", brewUpdater.Config))
 		tracker.ReportStatusChange(brewUpdater.Config.Title, brewUpdater.Config.Description)
-		var out *[]drv.CommandOutput
-		out, err = brewUpdater.Update(&tracker)
-		outputs = append(outputs, *out...)
-		tracker.IncrementSection(err)
+		_ = runModule(brewUpdater.Config.Title, &tracker, &outputs, brewUpdater.Update)
 	}
 
 	if flatpakUpdater.Config.Enabled {
-		slog.Debug(fmt.Sprintf("%s module", flatpakUpdater.Config.Title), slog.String("module_name", flatpakUpdater.Config.Title), slog.Any("module_configuration", flatpakUpdater.Config))
-		var out *[]drv.CommandOutput
-		out, err = flatpakUpdater.Update(&tracker)
-		outputs = append(outputs, *out...)
-		tracker.IncrementSection(err)
+		slog.Debug(fmt.Sprintf("%s module", flatpakUpdater.Config.Title), slog.String("module", strings.ToLower(flatpakUpdater.Config.Title)), slog.Any("module_configuration", flatpakUpdater.Config))
+		_ = runModule(flatpakUpdater.Config.Title, &tracker, &outputs, flatpakUpdater.Update)
 	}
 
 	if distroboxUpdater.Config.Enabled {
-		slog.Debug(fmt.Sprintf("%s module", distroboxUpdater.Config.Title), slog.String("module_name", distroboxUpdater.Config.Title), slog.Any("module_configuration", distroboxUpdater.Config))
-		var out *[]drv.CommandOutput
-		out, err = distroboxUpdater.Update(&tracker)
-		outputs = append(outputs, *out...)
-		tracker.IncrementSection(err)
+		slog.Debug(fmt.Sprintf("%s module", distroboxUpdater.Config.Title), slog.String("module", strings.ToLower(distroboxUpdater.Config.Title)), slog.Any("module_configuration", distroboxUpdater.Config))
+		_ = runModule(distroboxUpdater.Config.Title, &tracker, &outputs, distroboxUpdater.Update)
 	}
 
 	if !disableProgress {
@@ -205,7 +244,14 @@ func Update(cmd *cobra.Command, args []string) error {
 		slog.Info("Verbose run requested")
 
 		for _, output := range outputs {
-			slog.Info(output.Context, slog.Any("output", output))
+			slog.Info(output.Context,
+				slog.String("module", output.Module),
+				slog.String("context", output.Context),
+				slog.String("status", "finished"),
+				slog.Int("exit_code", output.ExitCode),
+				slog.String("output", output.Stdout),
+				slog.String("cli", strings.Join(output.Cli, " ")),
+			)
 		}
 	}
 
@@ -222,11 +268,7 @@ func Update(cmd *cobra.Command, args []string) error {
 		slog.Warn("Exited with failed updates.")
 
 		for _, output := range failures {
-			slog.Error("module_fail",
-				slog.Any("output", output),
-				slog.String("module", output.Context),
-				slog.String("cli", strings.Join(output.Cli, " ")),
-			)
+			logModuleFailure(output)
 		}
 		_ = session.Notify(users, "Some System Updates Failed", fmt.Sprintf("Systems Failed: %s", strings.Join(contexts, ", ")), "critical")
 

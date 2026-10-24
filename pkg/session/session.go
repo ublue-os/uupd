@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/godbus/dbus/v5"
+
+	appLogging "github.com/ublue-os/uupd/pkg/logging"
 )
 
 const (
@@ -49,7 +51,10 @@ func drainLog(logger *slog.Logger, level slog.Level, reader io.Reader, output io
 	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxLogLineSize)
 	for scanner.Scan() {
 		line := scanner.Text()
-		logger.Log(context.TODO(), level, line)
+		logger.Log(context.TODO(), level, "Command output",
+			slog.String("status", "running"),
+			slog.String("output", line),
+		)
 		_, _ = fmt.Fprintln(output, line)
 	}
 	_, _ = io.Copy(output, reader)
@@ -62,6 +67,10 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 		return command.CombinedOutput()
 	}
 
+	// Command output is logged at debug level for text output, but JSON
+	// consumers need it with the default log level, so promote it there.
+	level = appLogging.CommandOutputLevel(logger, level)
+
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -71,9 +80,8 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 		return nil, err
 	}
 
-	actualLogger := slog.Default()
 	if err := command.Start(); err != nil {
-		actualLogger.Warn("Error occurred starting external command", slog.Any("error", err))
+		logger.Warn("Error occurred starting external command", slog.Any("error", err))
 		return []byte{}, err
 	}
 
@@ -82,17 +90,17 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 	drains.Add(2)
 	go func() {
 		defer drains.Done()
-		drainLog(actualLogger, level, stdout, output)
+		drainLog(logger, level, stdout, output)
 	}()
 	go func() {
 		defer drains.Done()
-		drainLog(actualLogger, level, stderr, output)
+		drainLog(logger, level, stderr, output)
 	}()
 	drains.Wait()
 
 	err = command.Wait()
 	if err != nil {
-		actualLogger.Warn("Error occurred while waiting for external command", slog.Any("error", err))
+		logger.Warn("Error occurred while waiting for external command", slog.Any("error", err))
 	}
 
 	return []byte(output.String()), err
