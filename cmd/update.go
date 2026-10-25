@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -77,13 +78,25 @@ func logModuleFailure(output drv.CommandOutput) {
 	)
 }
 
+const updateInProgressMessage = "An update is already in progress. Please wait for it to finish before running uupd again."
+
+func handleLockAcquisitionError(err error) error {
+	if errors.Is(err, filelock.ErrLocked) {
+		slog.Info(updateInProgressMessage, slog.String("status", "in_progress"))
+		return nil
+	}
+
+	slog.Error("Failed acquiring lockfile", slog.Any("error", err))
+	return err
+}
+
 func Update(cmd *cobra.Command, args []string) error {
 	conf := config.Get()
 	modules := conf.Modules
 
 	lockfile, err := filelock.OpenLockfile(filelock.GetDefaultLockfile())
 	if err != nil {
-		slog.Error("Failed creating and opening lockfile. Is uupd already running?", slog.Any("error", err))
+		slog.Error("Failed creating and opening lockfile", slog.Any("error", err))
 		return err
 	}
 	defer func(lockfile *os.File) {
@@ -94,8 +107,7 @@ func Update(cmd *cobra.Command, args []string) error {
 	}(lockfile)
 
 	if err := filelock.AcquireLock(lockfile, filelock.TimeoutConfig{Tries: 5}); err != nil {
-		slog.Error(fmt.Sprintf("%v, is uupd already running?", err))
-		return err
+		return handleLockAcquisitionError(err)
 	}
 
 	hwCheck := conf.Checks.Hardware.Enable

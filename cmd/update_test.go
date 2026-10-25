@@ -3,11 +3,14 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"os/exec"
 	"testing"
 
 	"github.com/ublue-os/uupd/drv/generic"
+	"github.com/ublue-os/uupd/pkg/filelock"
 	"github.com/ublue-os/uupd/pkg/percent"
 )
 
@@ -147,5 +150,43 @@ func TestRunModuleReportsCommandExitCode(t *testing.T) {
 	}
 	if len(outputs) != 1 || outputs[0].ExitCode != 3 {
 		t.Fatalf("Expected output with exit code 3, got %#v", outputs)
+	}
+}
+
+func TestHandleLockAcquisitionErrorReportsUpdateInProgress(t *testing.T) {
+	buffer := captureLogs(t)
+
+	err := handleLockAcquisitionError(fmt.Errorf("wrapped: %w", filelock.ErrLocked))
+	if err != nil {
+		t.Fatalf("Expected an in-progress update to be handled without an error, got %v", err)
+	}
+
+	records := decodeLogs(t, buffer)
+	if len(records) != 1 {
+		t.Fatalf("Expected one log record, got %v", records)
+	}
+	if records[0]["msg"] != updateInProgressMessage {
+		t.Fatalf("Expected in-progress message %q, got %v", updateInProgressMessage, records[0]["msg"])
+	}
+	if records[0]["status"] != "in_progress" {
+		t.Fatalf("Expected status \"in_progress\", got %v", records[0]["status"])
+	}
+}
+
+func TestHandleLockAcquisitionErrorReturnsOtherErrors(t *testing.T) {
+	buffer := captureLogs(t)
+	lockErr := errors.New("permission denied")
+
+	err := handleLockAcquisitionError(lockErr)
+	if !errors.Is(err, lockErr) {
+		t.Fatalf("Expected the original error to be returned, got %v", err)
+	}
+
+	records := decodeLogs(t, buffer)
+	if len(records) != 1 {
+		t.Fatalf("Expected one log record, got %v", records)
+	}
+	if records[0]["level"] != "ERROR" {
+		t.Fatalf("Expected an error log record, got %v", records[0])
 	}
 }

@@ -1,6 +1,7 @@
 package filelock_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/ublue-os/uupd/pkg/filelock"
@@ -42,7 +43,7 @@ func TestLockAcquired(t *testing.T) {
 	}
 	defer file2.Close() //nolint:errcheck
 	err = filelock.AcquireLock(file2, defaultTimeout)
-	if err == nil {
-		t.Fatalf("Expected failing to lock file, %v", err)
+	if !errors.Is(err, filelock.ErrLocked) {
+		t.Fatalf("Expected ErrLocked when the file is already locked, got %v", err)
 	}
 }
