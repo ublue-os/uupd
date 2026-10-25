@@ -61,6 +61,40 @@ func (up RpmOstreeUpdater) Outdated() (bool, error) {
 	return timestamp.UTC().Before(oneMonthAgo), nil
 }
 
+type updateErrorHint struct {
+	pattern string
+	message string
+}
+
+var updateErrorHints = []updateErrorHint{
+	{"no space left on device", "Ran out of disk space during the update. Free up storage and try again."},
+	{"out of space", "Ran out of disk space during the update. Free up storage and try again."},
+	{"disk full", "Disk is full. Free up storage and try again."},
+	{"invalid checksum", "Invalid checksum while downloading. The update data may be corrupted; try again."},
+	{"signature invalid", "Invalid signature. The update data may be corrupted or untrusted; try again."},
+	{"failed to fetch", "Failed to fetch update data. Check your network connection and try again."},
+	{"failed to download", "Failed to download update data. Check your network connection and try again."},
+	{"couldn't connect to", "Could not connect to the update server. Check your network connection and try again."},
+	{"connection refused", "Connection refused by the update server. Check your network connection and try again."},
+	{"connection timed out", "Connection timed out. Check your network connection and try again."},
+	{"no route to host", "No route to the update server. Check your network connection and try again."},
+	{"failed to commit", "Failed to commit the new deployment. Check system health and try again."},
+	{"failed to deploy", "Failed to deploy the new tree. Check system health and try again."},
+}
+
+// ClassifyUpdateError inspects the combined output of an rpm-ostree upgrade
+// run and, when it matches a known common-failure pattern, returns a
+// human-readable hint suitable for printing to the terminal.
+func ClassifyUpdateError(output string) string {
+	lower := strings.ToLower(output)
+	for _, hint := range updateErrorHints {
+		if strings.Contains(lower, hint.pattern) {
+			return hint.message
+		}
+	}
+	return ""
+}
+
 func (up RpmOstreeUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
 	binaryPath := up.BinaryPath
@@ -75,6 +109,12 @@ func (up RpmOstreeUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutp
 	tmpout.Failure = err != nil
 	tmpout.Context = "System Update"
 	finalOutput = append(finalOutput, *tmpout)
+
+	if err != nil {
+		if hint := ClassifyUpdateError(string(out)); hint != "" {
+			up.Config.Logger.Error(hint)
+		}
+	}
 	return &finalOutput, err
 }
 
