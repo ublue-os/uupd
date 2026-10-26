@@ -23,7 +23,6 @@ jobs:
         id: release-please
         with:
           release-type: simple
-          package-name: release-please-action
 
   build-release:
     name: Build and push rpm package
