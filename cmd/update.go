@@ -310,13 +310,21 @@ func Update(cmd *cobra.Command, args []string) error {
 	}
 
 	slog.Info("Updates Completed Successfully")
-	if applySystem && mainSystemDriverConfig.Enabled && systemUpdateAvailable {
-		slog.Info("Applying System Update")
-		cmd := exec.Command("/usr/bin/systemctl", "reboot")
-		err := cmd.Run()
+
+	if applySystem && mainSystemDriverConfig.Enabled {
+		staged, err := mainSystemDriver.Staged()
 		if err != nil {
-			slog.Error("Failed rebooting machine for updates", slog.Any("error", err))
-			return err
+			slog.Warn("Failed checking for staged deployment after update", slog.Any("error", err))
+		} else if staged {
+			slog.Info("Applying System Update")
+			cmd := exec.Command("/usr/bin/systemctl", "reboot")
+			err := cmd.Run()
+			if err != nil {
+				slog.Error("Failed rebooting machine for updates", slog.Any("error", err))
+				return err
+			}
+		} else {
+			slog.Info("No staged deployment found, skipping reboot")
 		}
 	}
 	return nil

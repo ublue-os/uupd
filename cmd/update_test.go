@@ -155,6 +155,9 @@ type fakeSystemDriver struct {
 	checkResult bool
 	checkErr    error
 	checkCalls  int
+	stagedResult bool
+	stagedErr    error
+	stagedCalls  int
 }
 
 func (driver *fakeSystemDriver) Steps() int {
@@ -168,6 +171,11 @@ func (driver *fakeSystemDriver) Outdated() (bool, error) {
 func (driver *fakeSystemDriver) Check() (bool, error) {
 	driver.checkCalls++
 	return driver.checkResult, driver.checkErr
+}
+
+func (driver *fakeSystemDriver) Staged() (bool, error) {
+	driver.stagedCalls++
+	return driver.stagedResult, driver.stagedErr
 }
 
 func (driver *fakeSystemDriver) Update(*percent.Incrementer) (*[]generic.CommandOutput, error) {

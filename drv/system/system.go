@@ -42,6 +42,7 @@ type SystemUpdateDriver interface {
 	Steps() int
 	Outdated() (bool, error)
 	Check() (bool, error)
+	Staged() (bool, error)
 	Update(tracker *percent.Incrementer) (*[]CommandOutput, error)
 }
 
@@ -215,6 +216,28 @@ func (up SystemUpdater) Check() (bool, error) {
 	updateNecessary := !strings.Contains(string(out), "No changes in:")
 	up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", updateNecessary))
 	return updateNecessary, nil
+}
+
+func (up SystemUpdater) Staged() (bool, error) {
+	if up.Config.DryRun {
+		return false, nil
+	}
+
+	cmd := exec.Command(up.BinaryPath, "status", "--format=json")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+
+	var status bootcStatus
+	err = json.Unmarshal(out, &status)
+	if err != nil {
+		return false, err
+	}
+
+	staged := status.Status.Staged.Image.Timestamp != ""
+	up.Config.Logger.Debug("Executed staged deployment check", slog.Bool("staged", staged))
+	return staged, nil
 }
 
 func BootcCompatible(binaryPath string) bool {
