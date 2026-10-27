@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -32,6 +33,20 @@ type BaseCommitMeta struct {
 
 type skopeoInspect struct {
 	Digest string `json:"Digest"`
+}
+
+type ociIndex struct {
+	Manifests []ociManifest `json:"manifests"`
+}
+
+type ociManifest struct {
+	Digest   string       `json:"digest"`
+	Platform *ociPlatform `json:"platform"`
+}
+
+type ociPlatform struct {
+	OS           string `json:"os"`
+	Architecture string `json:"architecture"`
 }
 
 type RpmOstreeUpdater struct {
@@ -204,20 +219,72 @@ func (up RpmOstreeUpdater) checkSkopeo() (bool, error) {
 	if err != nil {
 		return true, fmt.Errorf("couldn't expand container reference: %w", err)
 	}
-	cmd = exec.Command(up.SkopeoPath, "inspect", ref)
-	out, err = cmd.CombinedOutput()
+
+	installedDigest := status.Deployments[0].Meta.Digest
+	indexDigest, err := up.inspectDigest(ref)
 	if err != nil {
-		return true, fmt.Errorf("running skopeo inspect failed: %w", err)
+		return true, err
+	}
+	if installedDigest == indexDigest {
+		up.Config.Logger.Debug("Executed skopeo fallback check", slog.Bool("update", false))
+		return false, nil
+	}
+
+	platformDigest, err := up.platformDigest(ref, installedDigest, indexDigest)
+	if err != nil {
+		return true, err
+	}
+
+	updateNecessary := installedDigest != platformDigest
+	up.Config.Logger.Debug("Executed skopeo fallback check", slog.Bool("update", updateNecessary))
+	return updateNecessary, nil
+}
+
+func (up RpmOstreeUpdater) inspectDigest(ref string) (string, error) {
+	out, err := exec.Command(up.SkopeoPath, "inspect", ref).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("running skopeo inspect failed: %w", err)
 	}
 	var inspect skopeoInspect
 	err = json.Unmarshal(out, &inspect)
 	if err != nil {
-		return true, fmt.Errorf("couldn't unmarshal skopeo inspect: %w", err)
+		return "", fmt.Errorf("couldn't unmarshal skopeo inspect: %w", err)
+	}
+	return inspect.Digest, nil
+}
+
+func (up RpmOstreeUpdater) platformDigest(ref, installedDigest, fallback string) (string, error) {
+	out, err := exec.Command(up.SkopeoPath, "inspect", "--raw", ref).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("running skopeo inspect --raw failed: %w", err)
+	}
+	var index ociIndex
+	err = json.Unmarshal(out, &index)
+	if err != nil {
+		return "", fmt.Errorf("couldn't unmarshal skopeo inspect --raw: %w", err)
+	}
+	if len(index.Manifests) == 0 {
+		return fallback, nil
 	}
 
-	updateNecessary := inspect.Digest != status.Deployments[0].Meta.Digest
-	up.Config.Logger.Debug("Executed skopeo fallback check", slog.Bool("update", updateNecessary))
-	return updateNecessary, nil
+	var platformManifest string
+	for _, manifest := range index.Manifests {
+		if manifest.Platform == nil ||
+			manifest.Platform.OS != runtime.GOOS ||
+			manifest.Platform.Architecture != runtime.GOARCH {
+			continue
+		}
+		if manifest.Digest == installedDigest {
+			return installedDigest, nil
+		}
+		if platformManifest == "" {
+			platformManifest = manifest.Digest
+		}
+	}
+	if platformManifest == "" {
+		return "", fmt.Errorf("no %s/%s manifest found in %s", runtime.GOOS, runtime.GOARCH, ref)
+	}
+	return platformManifest, nil
 }
 
 func expandReference(s string) (string, error) {
