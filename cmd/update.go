@@ -77,6 +77,30 @@ func logModuleFailure(output drv.CommandOutput) {
 	)
 }
 
+func planSystemModule(
+	driverEnabled bool,
+	moduleDisabled bool,
+	driver system.SystemUpdateDriver,
+	force bool,
+) (run bool, updateAvailable bool) {
+	run = driverEnabled && !moduleDisabled
+	if !run {
+		return run, false
+	}
+
+	if force {
+		return run, true
+	}
+
+	updateAvailable, err := driver.Check()
+	if err != nil {
+		slog.Warn("Failed checking for system updates, running the system update anyway", slog.Any("error", err))
+		return run, true
+	}
+
+	return run, updateAvailable
+}
+
 func Update(cmd *cobra.Command, args []string) error {
 	conf := config.Get()
 	modules := conf.Modules
@@ -175,17 +199,26 @@ func Update(cmd *cobra.Command, args []string) error {
 
 	mainSystemDriver, mainSystemDriverConfig, _, _ := system.InitializeSystemDriver(*initConfiguration)
 
-	enableUpd, err := true, nil
-	// if there's no force flag, check for updates
-	if !force {
-		enableUpd, err = mainSystemDriver.Check()
-	}
-	if err != nil {
-		slog.Error("Failed checking for updates")
-	}
-	mainSystemDriverConfig.Enabled = mainSystemDriverConfig.Enabled && enableUpd && !disableModuleSystem
+	systemDriverEnabled := mainSystemDriverConfig.Enabled
+	systemModuleEnabled, systemUpdateAvailable := planSystemModule(
+		systemDriverEnabled,
+		disableModuleSystem,
+		mainSystemDriver,
+		force,
+	)
+	mainSystemDriverConfig.Enabled = systemModuleEnabled
 
-	slog.Debug("System Updater module status", slog.Bool("enabled", mainSystemDriverConfig.Enabled))
+	slog.Debug("System Updater module status",
+		slog.Bool("enabled", systemModuleEnabled),
+		slog.Bool("disabled_by_config", disableModuleSystem),
+		slog.Bool("driver_enabled", systemDriverEnabled),
+		slog.Bool("update_available", systemUpdateAvailable),
+	)
+	if systemModuleEnabled && !force && !systemUpdateAvailable {
+		slog.Debug("System update check reported no updates, running the system update to verify",
+			slog.String("module", "system"),
+		)
+	}
 
 	totalSteps := brewUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
 	if mainSystemDriverConfig.Enabled {
@@ -277,13 +310,21 @@ func Update(cmd *cobra.Command, args []string) error {
 	}
 
 	slog.Info("Updates Completed Successfully")
+
 	if applySystem && mainSystemDriverConfig.Enabled {
-		slog.Info("Applying System Update")
-		cmd := exec.Command("/usr/bin/systemctl", "reboot")
-		err := cmd.Run()
+		staged, err := mainSystemDriver.Staged()
 		if err != nil {
-			slog.Error("Failed rebooting machine for updates", slog.Any("error", err))
-			return err
+			slog.Warn("Failed checking for staged deployment after update", slog.Any("error", err))
+		} else if staged {
+			slog.Info("Applying System Update")
+			cmd := exec.Command("/usr/bin/systemctl", "reboot")
+			err := cmd.Run()
+			if err != nil {
+				slog.Error("Failed rebooting machine for updates", slog.Any("error", err))
+				return err
+			}
+		} else {
+			slog.Info("No staged deployment found, skipping reboot")
 		}
 	}
 	return nil

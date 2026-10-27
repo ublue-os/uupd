@@ -22,6 +22,7 @@ type rpmOstreeStatus struct {
 		Timestamp int64          `json:"timestamp"`
 		Meta      BaseCommitMeta `json:"base-commit-meta"`
 		Reference string         `json:"container-image-reference"`
+		Staged    bool           `json:"staged"`
 	} `json:"deployments"`
 }
 
@@ -59,6 +60,31 @@ func (up RpmOstreeUpdater) Outdated() (bool, error) {
 	oneMonthAgo := time.Now().AddDate(0, -1, 0).UTC()
 
 	return timestamp.UTC().Before(oneMonthAgo), nil
+}
+
+func (up RpmOstreeUpdater) Staged() (bool, error) {
+	if up.Config.DryRun {
+		return false, nil
+	}
+
+	cmd := exec.Command(up.BinaryPath, "status", "--json")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+	var status rpmOstreeStatus
+	err = json.Unmarshal(out, &status)
+	if err != nil {
+		return false, err
+	}
+
+	for _, deployment := range status.Deployments {
+		if deployment.Staged {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 type updateErrorHint struct {

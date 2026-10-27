@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"os/exec"
 	"testing"
@@ -147,5 +148,109 @@ func TestRunModuleReportsCommandExitCode(t *testing.T) {
 	}
 	if len(outputs) != 1 || outputs[0].ExitCode != 3 {
 		t.Fatalf("Expected output with exit code 3, got %#v", outputs)
+	}
+}
+
+type fakeSystemDriver struct {
+	checkResult bool
+	checkErr    error
+	checkCalls  int
+	stagedResult bool
+	stagedErr    error
+	stagedCalls  int
+}
+
+func (driver *fakeSystemDriver) Steps() int {
+	return 1
+}
+
+func (driver *fakeSystemDriver) Outdated() (bool, error) {
+	return false, nil
+}
+
+func (driver *fakeSystemDriver) Check() (bool, error) {
+	driver.checkCalls++
+	return driver.checkResult, driver.checkErr
+}
+
+func (driver *fakeSystemDriver) Staged() (bool, error) {
+	driver.stagedCalls++
+	return driver.stagedResult, driver.stagedErr
+}
+
+func (driver *fakeSystemDriver) Update(*percent.Incrementer) (*[]generic.CommandOutput, error) {
+	return &[]generic.CommandOutput{}, nil
+}
+
+func TestPlanSystemModuleRunsWhenCheckReportsNoUpdate(t *testing.T) {
+	driver := &fakeSystemDriver{checkResult: false}
+
+	run, updateAvailable := planSystemModule(true, false, driver, false)
+
+	if !run {
+		t.Fatal("Expected the system module to run even when the update check reports no updates")
+	}
+	if updateAvailable {
+		t.Fatal("Expected update_available to reflect the negative check result")
+	}
+	if driver.checkCalls != 1 {
+		t.Fatalf("Expected the update check to run once, got %d", driver.checkCalls)
+	}
+}
+
+func TestPlanSystemModuleRespectsDisabledModule(t *testing.T) {
+	driver := &fakeSystemDriver{checkResult: true}
+
+	run, _ := planSystemModule(true, true, driver, false)
+
+	if run {
+		t.Fatal("Expected the system module to be skipped when it is disabled")
+	}
+	if driver.checkCalls != 0 {
+		t.Fatalf("Expected no update check when the module is disabled, got %d", driver.checkCalls)
+	}
+}
+
+func TestPlanSystemModuleRespectsDisabledDriver(t *testing.T) {
+	driver := &fakeSystemDriver{checkResult: true}
+
+	run, _ := planSystemModule(false, false, driver, false)
+
+	if run {
+		t.Fatal("Expected the system module to be skipped when the driver is disabled")
+	}
+	if driver.checkCalls != 0 {
+		t.Fatalf("Expected no update check when the driver is disabled, got %d", driver.checkCalls)
+	}
+}
+
+func TestPlanSystemModuleCheckErrorStillRuns(t *testing.T) {
+	buffer := captureLogs(t)
+	driver := &fakeSystemDriver{checkErr: errors.New("check failed")}
+
+	run, updateAvailable := planSystemModule(true, false, driver, false)
+
+	if !run {
+		t.Fatal("Expected the system module to run after a failed update check")
+	}
+	if !updateAvailable {
+		t.Fatal("Expected a failed update check to assume an update may be available")
+	}
+	records := decodeLogs(t, buffer)
+	if len(records) != 1 || records[0]["level"] != "WARN" {
+		t.Fatalf("Expected a warning about the failed check, got %v", records)
+	}
+}
+
+func TestPlanSystemModuleForceSkipsCheck(t *testing.T) {
+	driver := &fakeSystemDriver{checkResult: false}
+
+	run, updateAvailable := planSystemModule(true, false, driver, true)
+
+	if !run || !updateAvailable {
+		t.Fatalf("Expected forced system updates to run with update_available=true, got run=%v update_available=%v", run, updateAvailable)
+	}
+	if driver.checkCalls != 0 {
+		t.Fatalf("Expected --force to skip the update check, got %d calls", driver.checkCalls)
 	}
 }
