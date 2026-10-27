@@ -36,19 +36,13 @@ func TestProperSteps(t *testing.T) {
 	}
 }
 
-func writeFakeBinary(t *testing.T, output string, code int) string {
+func writeFakeScript(t *testing.T, script string) string {
 	t.Helper()
 	f, err := os.CreateTemp("", "fake-binary-*")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Remove(f.Name()) })
-
-	script := "#!/bin/sh\n"
-	if output != "" {
-		script += fmt.Sprintf("cat <<'EOF'\n%s\nEOF\n", output)
-	}
-	script += fmt.Sprintf("exit %d\n", code)
 
 	if _, err := f.WriteString(script); err != nil {
 		t.Fatal(err)
@@ -62,14 +56,16 @@ func writeFakeBinary(t *testing.T, output string, code int) string {
 	return f.Name()
 }
 
-func writeFakeRpmOstreeForSkopeo(t *testing.T, checkExitCode int, statusJSON, inspectOutput, rawOutput string, skopeoExitCode int) (string, string) {
-	t.Helper()
-	rpmOstreeBin, err := os.CreateTemp("", "fake-rpm-ostree-*")
-	if err != nil {
-		t.Fatal(err)
+func writeFakeBinary(t *testing.T, output string, code int) string {
+	script := "#!/bin/sh\n"
+	if output != "" {
+		script += fmt.Sprintf("cat <<'EOF'\n%s\nEOF\n", output)
 	}
-	t.Cleanup(func() { _ = os.Remove(rpmOstreeBin.Name()) })
+	script += fmt.Sprintf("exit %d\n", code)
+	return writeFakeScript(t, script)
+}
 
+func writeFakeRpmOstreeForSkopeo(t *testing.T, checkExitCode int, statusJSON, inspectOutput, rawOutput string, skopeoExitCode int) (string, string) {
 	rpmOstreeScript := fmt.Sprintf(`#!/bin/sh
 if [ "$1" = "upgrade" ]; then
     exit %d
@@ -82,22 +78,6 @@ OSTREE_EOF
 fi
 exit 1
 `, checkExitCode, statusJSON)
-
-	if _, err := rpmOstreeBin.WriteString(rpmOstreeScript); err != nil {
-		t.Fatal(err)
-	}
-	if err := rpmOstreeBin.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(rpmOstreeBin.Name(), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	skopeoBin, err := os.CreateTemp("", "fake-skopeo-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Remove(skopeoBin.Name()) })
 
 	skopeoScript := fmt.Sprintf(`#!/bin/sh
 if [ "$1" = "inspect" ] && [ "$2" = "--raw" ]; then
@@ -115,17 +95,7 @@ fi
 exit 1
 `, rawOutput, skopeoExitCode, inspectOutput, skopeoExitCode)
 
-	if _, err := skopeoBin.WriteString(skopeoScript); err != nil {
-		t.Fatal(err)
-	}
-	if err := skopeoBin.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(skopeoBin.Name(), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	return rpmOstreeBin.Name(), skopeoBin.Name()
+	return writeFakeScript(t, rpmOstreeScript), writeFakeScript(t, skopeoScript)
 }
 
 func TestCheckDryRun(t *testing.T) {
