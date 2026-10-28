@@ -20,6 +20,9 @@ GO_VET_FLAGS ?=
 CGO_ENABLED ?= 0
 LINTER ?= golangci-lint
 
+# Version (defaults to dev; override with VERSION=1.2.3 or from git describe)
+VERSION ?= dev
+
 # Project
 BINARY := uupd
 OUTPUT_DIR := output
@@ -41,7 +44,7 @@ DESTDIR ?=
 all: build
 
 build: | $(OUTPUT_DIR) ## Build the uupd binary into output/
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GO_BUILD_FLAGS) -o $(BIN) .
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) build $(GO_BUILD_FLAGS) -ldflags "-X github.com/ublue-os/uupd/cmd.version=$(VERSION)" -o $(BIN) .
 
 $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
