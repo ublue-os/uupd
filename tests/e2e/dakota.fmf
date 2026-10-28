@@ -1,0 +1,22 @@
+description: |
+  Test uupd upgrade on dakota images
+  
+  Verifies that uupd correctly upgrades a dakota image.
+  Tests the full upgrade cycle with a derived container image.
+  Uses uutils for additional complexity.
+
+provision:
+  how: virtual.testcloud
+  image: ghcr.io/projectbluefin/dakota:stable
+  flavor: dakota
+
+test:
+  how: exec
+  script:
+    - dnf -y install uupd
+    - bash tests/e2e/test-uupd-upgrade.sh
+
+finish:
+  how: exec
+  script:
+    - echo "dakota e2e test completed"

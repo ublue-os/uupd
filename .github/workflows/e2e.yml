@@ -1,0 +1,62 @@
+name: e2e testing
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  merge_group:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: E2E Test uupd on ${{ matrix.image.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image:
+              name: bazzite
+            base_image: ghcr.io/ublue-os/bazzite:stable
+          - image:
+              name: aurora
+            base_image: ghcr.io/ublue-os/aurora:stable
+          - image:
+              name: bluefin
+            base_image: ghcr.io/projectbluefin/bluefin:stable
+          - image:
+              name: fedora-bootc-rawhide
+            base_image: ghcr.io/fedora/fedora-bootc:rawhide
+          - image:
+              name: zirconium-hawaii
+            base_image: ghcr.io/zirconium-dev/zirconium-hawaii:testing
+          - image:
+              name: dakota
+            base_image: ghcr.io/projectbluefin/dakota:stable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Install deps
+        run: |
+          sudo apt-get install -y tmt qemu-system-x86 bcvk podman rsync
+
+      - name: Build uupd
+        run: |
+          go build -o output/uupd .
+
+      - name: Create test image
+        run: |
+          podman build -t localhost/bootc . -f Containerfile
+
+      - name: Run e2e tests
+        run: |
+          tmt run -a plan --name "e2e/${{ matrix.image.name }}" --debug
+

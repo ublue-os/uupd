@@ -1,0 +1,22 @@
+summary: Run uupd e2e tests with tmt and bcvk
+
+discover:
+  how: fmf
+  directory: tests/e2e
+
+prepare:
+  - name: Install e2e test dependencies
+    how: install
+    package:
+      - tmt
+      - qemu-kvm
+      - podman
+      - bcvk
+      - rsync
+
+execute:
+  - name: Run uupd upgrade test
+    how: exec
+    script: tests/e2e/test-uupd-upgrade.sh
+
+finish: []

@@ -97,6 +97,11 @@ test directory="":
 		go test -v -cover ./...
 	fi
 
+e2e:
+	#!/usr/bin/env bash
+	set -eou pipefail
+	tmt run -a plan --name e2e --debug
+
 test-coverage directory="":
 	#!/usr/bin/env bash
 	t="/tmp/go-cover.$$.tmp"

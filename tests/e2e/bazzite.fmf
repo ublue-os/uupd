@@ -1,0 +1,21 @@
+description: |
+  Test uupd upgrade on bazzite
+  
+  Verifies that uupd correctly upgrades a bazzite bootc image.
+  Tests the full upgrade cycle with a derived container image.
+
+provision:
+  how: virtual.testcloud
+  image: ghcr.io/ublue-os/bazzite:stable
+  flavor: bazzite
+
+test:
+  how: exec
+  script:
+    - dnf -y install uupd
+    - bash tests/e2e/test-uupd-upgrade.sh
+
+finish:
+  how: exec
+  script:
+    - echo "bazzite e2e test completed"

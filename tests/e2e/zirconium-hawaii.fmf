@@ -1,0 +1,22 @@
+description: |
+  Test uupd upgrade on zirconium-hawaii:edge images
+  
+  Verifies that uupd correctly upgrades a zirconium-hawaii:edge image.
+  Tests the full upgrade cycle with a derived container image.
+  Uses uutils and pure bootc for complex edge cases.
+
+provision:
+  how: virtual.testcloud
+  image: ghcr.io/zirconium-dev/zirconium-hawaii:testing
+  flavor: zirconium-hawaii
+
+test:
+  how: exec
+  script:
+    - dnf -y install uupd
+    - bash tests/e2e/test-uupd-upgrade.sh
+
+finish:
+  how: exec
+  script:
+    - echo "zirconium-hawaii:edge e2e test completed"

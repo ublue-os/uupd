@@ -1,0 +1,21 @@
+description: |
+  Test uupd upgrade on aurora images
+  
+  Verifies that uupd correctly upgrades an aurora bootc image.
+  Tests the full upgrade cycle with a derived container image.
+
+provision:
+  how: virtual.testcloud
+  image: ghcr.io/ublue-os/aurora:stable
+  flavor: aurora
+
+test:
+  how: exec
+  script:
+    - dnf -y install uupd
+    - bash tests/e2e/test-uupd-upgrade.sh
+
+finish:
+  how: exec
+  script:
+    - echo "aurora e2e test completed"
