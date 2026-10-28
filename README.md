@@ -14,8 +14,8 @@ You can install it on Fedora by running:
 > `dnf` can be substituted for `rpm-ostree` or `dnf5`. The [dnf COPR plugin](https://dnf-plugins-core.readthedocs.io/en/latest/copr.html) must also be installed for the `dnf copr` command.
 
 ```
-$ sudo dnf copr enable ublue-os/packages
-$ sudo dnf install uupd
+sudo dnf copr enable ublue-os/packages
+sudo dnf install uupd
 ```
 
 > **Note**
@@ -27,7 +27,7 @@ $ sudo dnf install uupd
 To run a complete system update you can use the command line
 
 ```
-$ sudo uupd
+sudo uupd
 ```
 
 This allows for passwordless system updates (user must be in `wheel` group)
@@ -36,13 +36,13 @@ This allows for passwordless system updates (user must be in `wheel` group)
 ## Run updates from command line (not recommended)
 
 ```
-$ sudo uupd
+sudo uupd
 ```
 
 # CLI Options
 
 ```
-$ uupd --help
+uupd --help
 ```
 
 # Configuration
@@ -79,12 +79,14 @@ Automatic updates are ran from the systemd service to edit basic options, you ca
 ## Options
 
 ### `modules`  
+
 - `brew.disable`: disable brew update module
 - `distrobox.disable`: disable distrobox update module
 - `flatpak.disable`: disable flatpak update module
 - `system.disable`: disable system update (bootc/rpm-ostree) module
 
 ### `checks.hardware`
+
 - `enable`: enable hardware checks when running automatic updates (making sure wifi, etc is runnable)
 - `bat-min-percent`: minimum battery percentage for checks to pass
 - `cpu-min-percent`: maxmium cpu load percentage before checks fail
@@ -96,7 +98,7 @@ Automatic updates are ran from the systemd service to edit basic options, you ca
 
 You can check the uupd logs by running this command:
 ```
-$ journalctl -exu 'uupd.service'
+journalctl -exu 'uupd.service'
 ```
 
 # How do I build this?
@@ -104,6 +106,7 @@ $ journalctl -exu 'uupd.service'
 The `Makefile` is the primary interface for building, testing and installing. Run `make` or `make help` to list all targets.
 
 ## Build and test
+
 - `make build` builds the binary into `output/uupd`
 - `make test` runs the unit tests (`go test -v -cover ./...`)
 - `make test-cover` writes a coverage profile to `output/coverage.out` and prints the coverage summary
@@ -117,8 +120,8 @@ The `Makefile` is the primary interface for building, testing and installing. Ru
 To build and run an update:
 
 ```
-$ make build
-$ sudo ./output/uupd
+make build
+sudo ./output/uupd
 ```
 
 ## Installing the tool
@@ -126,9 +129,9 @@ $ sudo ./output/uupd
 `make install` builds and installs the binary, systemd units, polkit rule and default config:
 
 ```
-$ sudo make install
-$ sudo systemctl daemon-reload
-$ sudo systemctl enable --now uupd.timer
+sudo make install
+sudo systemctl daemon-reload
+sudo systemctl enable --now uupd.timer
 ```
 
 Files are installed under `/usr` by default, matching the paths used by the shipped units:
@@ -145,8 +148,8 @@ An existing `/etc/uupd/config.json` is never overwritten. Use `make install-bin`
 `PREFIX` and `DESTDIR` are supported for staged or custom installs:
 
 ```
-$ make install DESTDIR="$PWD/pkgroot"
-$ make install PREFIX=/usr/local
+make install DESTDIR="$PWD/pkgroot"
+make install PREFIX=/usr/local
 ```
 
 > **Note**
@@ -155,10 +158,12 @@ $ make install PREFIX=/usr/local
 `sudo make uninstall` removes the installed files but preserves the config in `/etc/uupd`.
 
 ## Development System Installation
+
 1. `just build-package` will build `uupd` as an rpm and place it into `output/rpms/uupd.rpm`
 1. Install the rpm with a package manager of your choice or into a VM for testing
 
-##  Devcontainer Usage
+## Devcontainer Usage
+
 1. When prompted, reopen the repository in Container
 2. Follow above building instructions
 3. Download `uupd` from container to host and run on your host
