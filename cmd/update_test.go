@@ -152,9 +152,9 @@ func TestRunModuleReportsCommandExitCode(t *testing.T) {
 }
 
 type fakeSystemDriver struct {
-	checkResult bool
-	checkErr    error
-	checkCalls  int
+	checkResult  bool
+	checkErr     error
+	checkCalls   int
 	stagedResult bool
 	stagedErr    error
 	stagedCalls  int

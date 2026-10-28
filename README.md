@@ -101,12 +101,61 @@ $ journalctl -exu 'uupd.service'
 
 # How do I build this?
 
-## For Testing
-1. `just build` will build this project and place the binary in `output/uupd`
-1. `sudo ./output/uupd` will run an update
+The `Makefile` is the primary interface for building, testing and installing. Run `make` or `make help` to list all targets.
+
+## Build and test
+- `make build` builds the binary into `output/uupd`
+- `make test` runs the unit tests (`go test -v -cover ./...`)
+- `make test-cover` writes a coverage profile to `output/coverage.out` and prints the coverage summary
+- `make vet` runs `go vet ./...`
+- `make check` runs both `vet` and `test`
+- `make fmt` formats the Go sources, and `make fmt-check` verifies formatting
+- `make lint` runs `golangci-lint`
+- `make tidy` updates `go.mod`/`go.sum`, and `make vendor` refreshes the vendor directory
+- `make clean` removes build artifacts
+
+To build and run an update:
+
+```
+$ make build
+$ sudo ./output/uupd
+```
+
+## Installing the tool
+
+`make install` builds and installs the binary, systemd units, polkit rule and default config:
+
+```
+$ sudo make install
+$ sudo systemctl daemon-reload
+$ sudo systemctl enable --now uupd.timer
+```
+
+Files are installed under `/usr` by default, matching the paths used by the shipped units:
+
+| File | Destination |
+| --- | --- |
+| `uupd` | `/usr/bin/uupd` |
+| `uupd.service`, `uupd-manual.service`, `uupd.timer` | `/usr/lib/systemd/system/` |
+| `uupd.rules` | `/usr/share/polkit-1/rules.d/` |
+| `config.json` | `/etc/uupd/config.json` |
+
+An existing `/etc/uupd/config.json` is never overwritten. Use `make install-bin` to install only the binary.
+
+`PREFIX` and `DESTDIR` are supported for staged or custom installs:
+
+```
+$ make install DESTDIR="$PWD/pkgroot"
+$ make install PREFIX=/usr/local
+```
+
+> **Note**
+> The supplied systemd units call `/usr/bin/uupd`, so a non-default `PREFIX` also requires adjusting the units.
+
+`sudo make uninstall` removes the installed files but preserves the config in `/etc/uupd`.
 
 ## Development System Installation
-1. `just build-package` will build `uupd` as a package and place it into `output/rpms/uupd.rpm`
+1. `just build-package` will build `uupd` as an rpm and place it into `output/rpms/uupd.rpm`
 1. Install the rpm with a package manager of your choice or into a VM for testing
 
 ##  Devcontainer Usage
