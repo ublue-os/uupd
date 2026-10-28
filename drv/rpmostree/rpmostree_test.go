@@ -36,19 +36,13 @@ func TestProperSteps(t *testing.T) {
 	}
 }
 
-func writeFakeBinary(t *testing.T, output string, code int) string {
+func writeFakeScript(t *testing.T, script string) string {
 	t.Helper()
 	f, err := os.CreateTemp("", "fake-binary-*")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Remove(f.Name()) })
-
-	script := "#!/bin/sh\n"
-	if output != "" {
-		script += fmt.Sprintf("cat <<'EOF'\n%s\nEOF\n", output)
-	}
-	script += fmt.Sprintf("exit %d\n", code)
 
 	if _, err := f.WriteString(script); err != nil {
 		t.Fatal(err)
@@ -62,14 +56,16 @@ func writeFakeBinary(t *testing.T, output string, code int) string {
 	return f.Name()
 }
 
-func writeFakeRpmOstreeForSkopeo(t *testing.T, checkExitCode int, statusJSON, skopeoDigest string, skopeoExitCode int) (string, string) {
-	t.Helper()
-	rpmOstreeBin, err := os.CreateTemp("", "fake-rpm-ostree-*")
-	if err != nil {
-		t.Fatal(err)
+func writeFakeBinary(t *testing.T, output string, code int) string {
+	script := "#!/bin/sh\n"
+	if output != "" {
+		script += fmt.Sprintf("cat <<'EOF'\n%s\nEOF\n", output)
 	}
-	t.Cleanup(func() { _ = os.Remove(rpmOstreeBin.Name()) })
+	script += fmt.Sprintf("exit %d\n", code)
+	return writeFakeScript(t, script)
+}
 
+func writeFakeRpmOstreeForSkopeo(t *testing.T, checkExitCode int, statusJSON, inspectOutput, rawOutput string, skopeoExitCode int) (string, string) {
 	rpmOstreeScript := fmt.Sprintf(`#!/bin/sh
 if [ "$1" = "upgrade" ]; then
     exit %d
@@ -83,39 +79,23 @@ fi
 exit 1
 `, checkExitCode, statusJSON)
 
-	if _, err := rpmOstreeBin.WriteString(rpmOstreeScript); err != nil {
-		t.Fatal(err)
-	}
-	if err := rpmOstreeBin.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(rpmOstreeBin.Name(), 0755); err != nil {
-		t.Fatal(err)
-	}
+	skopeoScript := fmt.Sprintf(`#!/bin/sh
+if [ "$1" = "inspect" ] && [ "$2" = "--raw" ]; then
+    cat <<'RAW_EOF'
+%s
+RAW_EOF
+    exit %d
+fi
+if [ "$1" = "inspect" ]; then
+    cat <<'INSPECT_EOF'
+%s
+INSPECT_EOF
+    exit %d
+fi
+exit 1
+`, rawOutput, skopeoExitCode, inspectOutput, skopeoExitCode)
 
-	skopeoBin, err := os.CreateTemp("", "fake-skopeo-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Remove(skopeoBin.Name()) })
-
-	skopeoScript := "#!/bin/sh\n"
-	if skopeoDigest != "" {
-		skopeoScript += fmt.Sprintf("cat <<'SKOPEO_EOF'\n%s\nSKOPEO_EOF\n", skopeoDigest)
-	}
-	skopeoScript += fmt.Sprintf("exit %d\n", skopeoExitCode)
-
-	if _, err := skopeoBin.WriteString(skopeoScript); err != nil {
-		t.Fatal(err)
-	}
-	if err := skopeoBin.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(skopeoBin.Name(), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	return rpmOstreeBin.Name(), skopeoBin.Name()
+	return writeFakeScript(t, rpmOstreeScript), writeFakeScript(t, skopeoScript)
 }
 
 func TestCheckDryRun(t *testing.T) {
@@ -156,7 +136,8 @@ func TestCheckNoUpdatesFallbackToSkopeo(t *testing.T) {
     ]
 }`
 	skopeoOutput := `{"Digest": "sha256:same"}`
-	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 77, statusJSON, skopeoOutput, 0)
+	singleManifest := `{"schemaVersion": 2, "mediaType": "application/vnd.oci.image.manifest.v1+json"}`
+	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 77, statusJSON, skopeoOutput, singleManifest, 0)
 	updater := InitBaseConfig()
 	updater.Config.DryRun = false
 	updater.BinaryPath = rpmOstreeBin
@@ -182,7 +163,8 @@ func TestCheckExit77SkopeoDetectsBaseImageChange(t *testing.T) {
     ]
 }`
 	skopeoOutput := `{"Digest": "sha256:new"}`
-	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 77, statusJSON, skopeoOutput, 0)
+	singleManifest := `{"schemaVersion": 2, "mediaType": "application/vnd.oci.image.manifest.v1+json"}`
+	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 77, statusJSON, skopeoOutput, singleManifest, 0)
 	updater := InitBaseConfig()
 	updater.Config.DryRun = false
 	updater.BinaryPath = rpmOstreeBin
@@ -194,6 +176,73 @@ func TestCheckExit77SkopeoDetectsBaseImageChange(t *testing.T) {
 	}
 	if !updateAvailable {
 		t.Fatalf("Expected updates: --check exited 77 but skopeo detected base image change")
+	}
+}
+
+func TestCheckIndexDigestMatchesPlatformManifest(t *testing.T) {
+	statusJSON := `{
+    "deployments": [
+        {
+            "timestamp": 1700000000,
+            "base-commit-meta": {"ostree.manifest-digest": "sha256:cf32381a509dcd446fadcbe5c0558c3021b8b90879ae0d02b22b5d0e5c2c587e"},
+            "container-image-reference": "ostree-image-signed:docker://ghcr.io/ublue-os/test:stable"
+        }
+    ]
+}`
+	inspectOutput := `{"Digest": "sha256:71df44e56aaea670bd3c0e2820190d6b2b49578d6b18e11be5049ca751686997"}`
+	rawIndex := `{
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+        {"digest": "sha256:cf32381a509dcd446fadcbe5c0558c3021b8b90879ae0d02b22b5d0e5c2c587e", "platform": {"os": "linux", "architecture": "amd64"}},
+        {"digest": "sha256:arm64digest", "platform": {"os": "linux", "architecture": "arm64"}},
+        {"digest": "sha256:attestation", "platform": {"os": "unknown", "architecture": "unknown"}}
+    ]
+}`
+	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 77, statusJSON, inspectOutput, rawIndex, 0)
+	updater := InitBaseConfig()
+	updater.Config.DryRun = false
+	updater.BinaryPath = rpmOstreeBin
+	updater.SkopeoPath = skopeoBin
+
+	updateAvailable, err := updater.Check()
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if updateAvailable {
+		t.Fatalf("Expected no updates when the platform manifest digest matches the installed digest")
+	}
+}
+
+func TestCheckIndexDigestPlatformManifestChanged(t *testing.T) {
+	statusJSON := `{
+    "deployments": [
+        {
+            "timestamp": 1700000000,
+            "base-commit-meta": {"ostree.manifest-digest": "sha256:old"},
+            "container-image-reference": "ostree-image-signed:docker://ghcr.io/ublue-os/test:stable"
+        }
+    ]
+}`
+	inspectOutput := `{"Digest": "sha256:index"}`
+	rawIndex := `{
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "manifests": [
+        {"digest": "sha256:new", "platform": {"os": "linux", "architecture": "amd64"}},
+        {"digest": "sha256:arm64digest", "platform": {"os": "linux", "architecture": "arm64"}}
+    ]
+}`
+	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 77, statusJSON, inspectOutput, rawIndex, 0)
+	updater := InitBaseConfig()
+	updater.Config.DryRun = false
+	updater.BinaryPath = rpmOstreeBin
+	updater.SkopeoPath = skopeoBin
+
+	updateAvailable, err := updater.Check()
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if !updateAvailable {
+		t.Fatalf("Expected updates when the platform manifest digest changed")
 	}
 }
 
