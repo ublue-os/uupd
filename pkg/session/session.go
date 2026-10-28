@@ -19,7 +19,8 @@ import (
 const (
 	notifyTimeout = 15 * time.Second
 
-	envPath = "/usr/bin/env"
+	shellPath   = "/bin/sh"
+	execWrapper = `exec "$0" "$@"`
 
 	maxLogLineSize = 1024 * 1024
 )
@@ -106,13 +107,22 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 	return []byte(output.String()), err
 }
 
-func pkexecArgs(name string, command []string) []string {
+func wrapperArgs(command []string) []string {
 	return append([]string{
+		shellPath,
+		"-c",
+		execWrapper,
+	}, command...)
+}
+
+func pkexecArgs(name string, command []string) []string {
+	args := []string{
 		"/usr/bin/pkexec",
 		"-u",
 		name,
-		envPath,
-	}, command...)
+	}
+
+	return append(args, wrapperArgs(command)...)
 }
 
 func RunAsUser(logger *slog.Logger, level slog.Level, name string, command []string) ([]byte, error) {
