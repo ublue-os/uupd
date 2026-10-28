@@ -1,6 +1,7 @@
 package checks
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,6 +16,8 @@ type Info struct {
 	Name string
 	Err  error
 }
+
+var ErrMeteredNetwork = errors.New("network is metered")
 
 func Hardware(conn *dbus.Conn) []Info {
 	var checks []Info
@@ -126,7 +129,7 @@ func network_once(conn *dbus.Conn, max uint64) error {
 	//     NM_METERED_GUESS_NO  = 4 // Not metered, the value was guessed
 	//
 	if metered == 1 || metered == 3 {
-		return fmt.Errorf("network is metered")
+		return ErrMeteredNetwork
 	}
 
 	// check if user is connected to network
@@ -242,6 +245,9 @@ func RunHwChecks() error {
 	checkInfo := Hardware(conn)
 	for _, info := range checkInfo {
 		if info.Err != nil {
+			if errors.Is(info.Err, ErrMeteredNetwork) {
+				return ErrMeteredNetwork
+			}
 			return fmt.Errorf("%s, returned error: %v", info.Name, info.Err)
 		}
 	}
