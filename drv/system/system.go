@@ -103,6 +103,9 @@ func (up SystemUpdater) Outdated() (bool, error) {
 
 func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
+	if up.Config.DryRun {
+		return &finalOutput, nil
+	}
 	var cmd *exec.Cmd
 	binaryPath := up.BinaryPath
 

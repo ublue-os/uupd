@@ -36,6 +36,19 @@ func TestProperSteps(t *testing.T) {
 	}
 }
 
+func TestUpdateDryRunDoesNotExecuteBootc(t *testing.T) {
+	systemUpdater := InitBaseConfig()
+	// Executing this fake updater would fail. A dry run must not execute it.
+	systemUpdater.BinaryPath = writeFakeBinary(t, "unexpected execution", 77)
+	output, err := systemUpdater.Update(nil)
+	if err != nil {
+		t.Fatalf("Dry run executed bootc: %v", err)
+	}
+	if output == nil || len(*output) != 0 {
+		t.Fatalf("Dry run should return empty command output, got %v", output)
+	}
+}
+
 func writeFakeBinary(t *testing.T, output string, code int) string {
 	t.Helper()
 	f, err := os.CreateTemp("", "fake-binary-*")
