@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -156,6 +157,10 @@ func Update(cmd *cobra.Command, args []string) error {
 	if hwCheck {
 		err := checks.RunHwChecks()
 		if err != nil {
+			if errors.Is(err, checks.ErrMeteredNetwork) {
+				slog.Info("Skipping updates, network is metered")
+				return nil
+			}
 			slog.Error("Hardware checks failed", "error", err)
 			return err
 		}

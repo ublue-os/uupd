@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"log/slog"
 
 	"github.com/spf13/cobra"
@@ -11,6 +12,10 @@ func HwCheck(cmd *cobra.Command, args []string) error {
 	// (some hardware checks require dbus access)
 	err := checks.RunHwChecks()
 	if err != nil {
+		if errors.Is(err, checks.ErrMeteredNetwork) {
+			slog.Info("Network is metered, skipping hardware checks")
+			return nil
+		}
 		slog.Error("Hardware checks failed", slog.Any("error", err))
 		return err
 	}
