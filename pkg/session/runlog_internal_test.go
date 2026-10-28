@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -171,7 +173,7 @@ func TestRunLogKeepsCommandOutputAtDebugLevelForTextLogging(t *testing.T) {
 	}
 }
 
-func TestPkexecArgsInterposesEnv(t *testing.T) {
+func TestPkexecArgsInterposesAShellWrapper(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		description string
@@ -183,19 +185,19 @@ func TestPkexecArgsInterposesEnv(t *testing.T) {
 			"brew upgrade",
 			"linuxbrew",
 			[]string{"/home/linuxbrew/.linuxbrew/bin/brew", "upgrade", "-y"},
-			[]string{"/usr/bin/pkexec", "-u", "linuxbrew", "/usr/bin/env", "/home/linuxbrew/.linuxbrew/bin/brew", "upgrade", "-y"},
+			[]string{"/usr/bin/pkexec", "-u", "linuxbrew", "/bin/sh", "-c", `exec "$0" "$@"`, "/home/linuxbrew/.linuxbrew/bin/brew", "upgrade", "-y"},
 		},
 		{
 			"per-user flatpak update",
 			"testuser",
 			[]string{"/usr/bin/flatpak", "update", "-y"},
-			[]string{"/usr/bin/pkexec", "-u", "testuser", "/usr/bin/env", "/usr/bin/flatpak", "update", "-y"},
+			[]string{"/usr/bin/pkexec", "-u", "testuser", "/bin/sh", "-c", `exec "$0" "$@"`, "/usr/bin/flatpak", "update", "-y"},
 		},
 		{
 			"distrobox upgrade",
 			"testuser",
 			[]string{"/usr/bin/distrobox", "upgrade", "-a"},
-			[]string{"/usr/bin/pkexec", "-u", "testuser", "/usr/bin/env", "/usr/bin/distrobox", "upgrade", "-a"},
+			[]string{"/usr/bin/pkexec", "-u", "testuser", "/bin/sh", "-c", `exec "$0" "$@"`, "/usr/bin/distrobox", "upgrade", "-a"},
 		},
 	}
 
@@ -221,7 +223,45 @@ func TestPkexecArgsPreservesTheProgramPath(t *testing.T) {
 	const program = "/home/linuxbrew/.linuxbrew/bin/brew"
 
 	got := pkexecArgs("linuxbrew", []string{program, "outdated"})
-	if got[4] != program {
-		t.Fatalf("Expected the program path %q to be passed through untouched, got %q", program, got[4])
+	if got[6] != program {
+		t.Fatalf("Expected the program path %q to be passed through untouched, got %q", program, got[6])
+	}
+}
+
+func TestWrapperArgsPreserveTheProgramPathAsArgZero(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "brew")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$0\"\nprintf '%s\\n' \"$@\"\n"
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("Failed writing test script: %v", err)
+	}
+
+	linkPath := filepath.Join(dir, "bin", "brew")
+	if err := os.MkdirAll(filepath.Dir(linkPath), 0o755); err != nil {
+		t.Fatalf("Failed creating symlink directory: %v", err)
+	}
+	if err := os.Symlink(scriptPath, linkPath); err != nil {
+		t.Fatalf("Failed creating symlink: %v", err)
+	}
+
+	args := wrapperArgs([]string{linkPath, "upgrade", "-y"})
+	command := exec.Command(args[0], args[1:]...)
+
+	out, err := runLogWithDeadline(t, command, 30*time.Second)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v (output: %q)", err, out)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("Expected $0 and two arguments in output, got %q", out)
+	}
+	if lines[0] != linkPath {
+		t.Fatalf("Expected $0 to stay %q, got %q", linkPath, lines[0])
+	}
+	if lines[1] != "upgrade" || lines[2] != "-y" {
+		t.Fatalf("Expected arguments to be passed through untouched, got %v", lines[1:])
 	}
 }
