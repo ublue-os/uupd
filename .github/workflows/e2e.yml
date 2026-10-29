@@ -64,7 +64,7 @@ jobs:
 
       - name: Build uupd RPM
         run: |
-          make build-package
+          make build
 
       - name: Build test container image
         run: |
