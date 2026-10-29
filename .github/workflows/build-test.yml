@@ -25,18 +25,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        major_version: [43, 44]
+        major_version: [44, 45]
         include:
-          - major_version: 43
-            is_latest_version: false
-            is_stable_version: true
           - major_version: 44
             is_latest_version: true
             is_stable_version: false
+          - major_version: 45
+            is_latest_version: false
+            is_stable_version: true
     steps:
       # Checkout push-to-registry action GitHub repository
       - name: Checkout Push to Registry action
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Install Deps
         run: |
