@@ -19,11 +19,10 @@ jobs:
       tag: ${{ steps.release-please.outputs.tag_name }}
       upload_url: ${{ steps.release-please.outputs.upload_url }}
     steps:
-      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         id: release-please
         with:
           release-type: simple
-          package-name: release-please-action
 
   build-release:
     name: Build and push rpm package
@@ -37,12 +36,12 @@ jobs:
     steps:
       # Checkout push-to-registry action GitHub repository
       - name: Checkout Push to Registry action
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       # Build image using Buildah action
       - name: Build package using containerized build environment
         id: build_image
-        uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
+        uses: redhat-actions/buildah-build@719e3c40d8af9790c23eca13f7daa339f2867034 # v3
         with:
           containerfiles: |
             ./Containerfile.builder
@@ -55,7 +54,7 @@ jobs:
             --target rpm
 
       - name: upload output artifacts as release artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ublue-updater-rpms
           path: output/

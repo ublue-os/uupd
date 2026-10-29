@@ -29,9 +29,12 @@ func assertRoot(cmd *cobra.Command, args []string) {
 }
 
 var (
+	version = "dev"
+
 	rootCmd = &cobra.Command{
 		Use:           "uupd",
 		Short:         "uupd (Universal Update) is the successor to ublue-update, built for bootc",
+		Version:       version,
 		PreRun:        assertRoot,
 		RunE:          Update,
 		SilenceErrors: true,
