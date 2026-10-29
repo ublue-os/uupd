@@ -84,8 +84,7 @@ jobs:
           sha256sum -c "${BCVK_TARBALL}.sha256"
           tar -xzf "$BCVK_TARBALL"
           # bcvk tarball contains binary named 'bcvk-x86_64-unknown-linux-gnu', not 'bcvk'
-          BCVK_BIN=$(find . -name 'bcvk-*' -type f | head -1)
-          sudo install -m 0755 "$BCVK_BIN" /usr/local/bin/bcvk
+          sudo install -m 0755 bcvk-x86_64-unknown-linux-gnu /usr/local/bin/bcvk
           bcvk --version
 
       - name: Log in to GHCR
