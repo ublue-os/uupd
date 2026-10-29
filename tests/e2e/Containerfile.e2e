@@ -1,0 +1,34 @@
+# Multi-stage build to get uupd into the tested image
+# Based on https://github.com/ublue-os/uupd/issues/205
+
+ARG BASE_IMAGE="${BASE_IMAGE}"
+ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-44}"
+
+# Base stage
+FROM ${BASE_IMAGE} AS base
+
+# Builder stage
+FROM base AS builder
+
+RUN --mount=type=cache,dst=/var/cache/libdnf5 <<EOF
+dnf config-manager setopt keepcache=1
+dnf -y install golang
+EOF
+
+COPY . /src
+WORKDIR /src
+
+RUN <<EOF
+# fix go build error as /root is /var/roothome
+rm -rf /root
+make install DESTDIR=/output
+# we want to use the config from the image
+rm -f /output/etc/uupd/config.json
+EOF
+
+# System stage
+FROM base AS system
+
+COPY --from=builder /output /
+
+CMD [ "/sbin/init" ]

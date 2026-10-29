@@ -1,19 +1,19 @@
 description: |
-  Test uupd upgrade on fedora-bootc rawhide images
+  Test uupd upgrade on fedora-bootc:rawhide images
   
   Verifies that uupd correctly upgrades a fedora-bootc:rawhide image.
-  Tests the full upgrade cycle with a derived container image.
   Important for catching regressions from Fedora changes.
+  Tests the full upgrade cycle with a derived container image.
 
 provision:
-  how: virtual.testcloud
-  image: ghcr.io/fedora/fedora-bootc:rawhide
-  flavor: fedora-bootc-rawhide
+  how: bootc
+  container-image: localhost/uupd-test
+  image-builder: quay.io/centos-bootc/bootc-image-builder:stream10
+  rootfs: xfs
 
 test:
   how: exec
   script:
-    - dnf -y install uupd
     - bash tests/e2e/test-uupd-upgrade.sh
 
 finish:

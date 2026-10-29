@@ -67,13 +67,13 @@ EOF
     log "Running uupd is-img-outdated"
     uupd --is-img-outdated || log "is-img-outdated returned non-zero"
     
-    # Stage the upgrade
-    log "Staging upgrade with bootc switch"
-    bootc switch --transport containers-storage "$UPGRADE_IMAGE"
+    # Stage the upgrade with mutate-in-place
+    log "Staging upgrade with bootc switch --mutate-in-place"
+    bootc switch --mutate-in-place --transport containers-storage "$UPGRADE_IMAGE"
     
-    # Apply the upgrade (this will reboot)
-    log "Applying upgrade"
-    bootc switch --apply
+    # Reboot into new deployment
+    log "Rebooting into new deployment"
+    tmt-reboot
     
     log "First boot complete, rebooting..."
     exit 0

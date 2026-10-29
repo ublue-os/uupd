@@ -97,13 +97,6 @@ test directory="":
 		go test -v -cover ./...
 	fi
 
-e2e:
-	#!/usr/bin/env bash
-	set -eou pipefail
-	tmt run -a plan --name e2e --debug
-
-test-coverage directory="":
-	#!/usr/bin/env bash
 	t="/tmp/go-cover.$$.tmp"
 
 	if [ "{{directory}}" != "" ] ; then
@@ -111,3 +104,41 @@ test-coverage directory="":
 	else
 		go test -v -coverprofile=$t ./... $@ && go tool cover -html=$t && unlink $t
 	fi
+
+# E2E testing for uupd using TMT
+# Tests run against various image-based systems
+
+# List available e2e test images
+e2e-list:
+	#!/usr/bin/env bash
+	find tests/e2e/*.fmf -name "*.fmf" -exec basename {} .fmf \; | sort
+
+# Run all e2e tests
+e2e:
+	#!/usr/bin/env bash
+	set -eou pipefail
+	tmt run -a plan --name e2e --debug
+
+# Run a specific e2e test image
+e2e-image name="":
+	#!/usr/bin/env bash
+	set -eou pipefail
+	if [ "{{name}}" = "" ]; then
+		echo "Usage: just e2e-image name=<image-name>"
+		echo "Available images:"
+		find tests/e2e/*.fmf -name "*.fmf" -exec basename {} .fmf \; | sort
+		exit 1
+	fi
+	tmt run -a plan --name "e2e/{{name}}" --debug
+
+# Run specific e2e test file
+e2e-file file="":
+	#!/usr/bin/env bash
+	set -eou pipefail
+	if [ "{{file}}" = "" ]; then
+		echo "Usage: just e2e-file file=<test-file-name>"
+		echo "Available test files:"
+		find tests/e2e/*.fmf -exec basename {} .fmf \; | sort
+		exit 1
+	fi
+	tmt run -a plan --name "e2e/{{file}}" --debug

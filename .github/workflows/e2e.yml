@@ -16,7 +16,7 @@ on:
 jobs:
   e2e:
     name: E2E Test uupd on ${{ matrix.image.name }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -29,7 +29,7 @@ jobs:
             base_image: ghcr.io/ublue-os/aurora:stable
           - image:
               name: bluefin
-            base_image: ghcr.io/projectbluefin/bluefin:stable
+            base_image: ghcr.io/ublue-os/bluefin:stable
           - image:
               name: fedora-bootc-rawhide
             base_image: ghcr.io/fedora/fedora-bootc:rawhide
@@ -46,17 +46,37 @@ jobs:
 
       - name: Install deps
         run: |
-          sudo apt-get install -y tmt qemu-system-x86 bcvk podman rsync
+          # Install just (required by container-rpm-build)
+          sudo apt-get update
+          sudo apt-get install -y just
+          
+          # Add plucky repos for Ubuntu 24.04 to get newer packages
+          if [ "$(dpkg --print-architecture)" = "amd64" ]; then
+            echo "deb http://archive.ubuntu.com/ubuntu plucky universe main" | sudo tee /etc/apt/sources.list.d/plucky.list
+          else
+            echo "deb http://ports.ubuntu.com/ubuntu-ports plucky universe main" | sudo tee /etc/apt/sources.list.d/plucky.list
+          fi
+          echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-retries
+          
+          # Install base dependencies
+          sudo apt-get update
+          sudo apt-get install -y --allow-downgrades qemu-system-x86 qemu-kvm libvirt-daemon-system podman rsync
+          
+          # Install tmt via pip
+          pip3 install --break-system-packages tmt
 
-      - name: Build uupd
+      - name: Build uupd RPM
         run: |
-          go build -o output/uupd .
+          make build-package
 
-      - name: Create test image
+      - name: Build test container image
         run: |
-          podman build -t localhost/bootc . -f Containerfile
+          podman build \
+            -t localhost/uupd-test \
+            --build-arg BASE_IMAGE=${{ matrix.base_image }} \
+            -f tests/e2e/Containerfile.test \
+            .
 
       - name: Run e2e tests
         run: |
           tmt run -a plan --name "e2e/${{ matrix.image.name }}" --debug
-

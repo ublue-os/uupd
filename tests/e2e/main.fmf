@@ -1,4 +1,4 @@
-summary: Run uupd e2e tests with tmt and bcvk
+summary: Run uupd e2e tests with tmt bootc provision
 
 discover:
   how: fmf
@@ -11,7 +11,6 @@ prepare:
       - tmt
       - qemu-kvm
       - podman
-      - bcvk
       - rsync
 
 execute:
