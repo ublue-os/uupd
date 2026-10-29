@@ -1,11 +1,17 @@
+
 [Unit]
 Description=Auto Update System Timer For Universal Blue
 Wants=network-online.target
 
 [Timer]
-OnBootSec=20min
-OnUnitInactiveSec=6h
+# Run daily at 4:00 AM
+OnCalendar=*-*-* 04:00:00
+
+# If the system was off/suspended at 4:00 AM, trigger immediately on resume/boot
 Persistent=true
+
+# Wait up to 15 minutes after triggering and Spreads the load on update servers (thundering herd protection).
+RandomizedDelaySec=15m
 
 [Install]
 WantedBy=timers.target

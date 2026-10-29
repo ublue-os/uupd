@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	. "github.com/ublue-os/uupd/drv/generic"
+	appConfig "github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
@@ -29,6 +30,7 @@ func (up DistroboxUpdater) Steps() int {
 }
 
 func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdater, error) {
+	conf := appConfig.Get().Modules.Distrobox
 	userdesc := "Distroboxes for User:"
 	up.Config = DriverConfiguration{
 		Title:           "Distrobox",
@@ -42,7 +44,7 @@ func (up DistroboxUpdater) New(config UpdaterInitConfiguration) (DistroboxUpdate
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.usersEnabled = false
 
-	up.binaryPath = EnvOrFallback(up.Config.Environment, "UUPD_DISTROBOX_BINARY", "/usr/bin/distrobox")
+	up.binaryPath = conf.BinaryPath
 
 	if up.Config.DryRun {
 		return up, nil
@@ -84,7 +86,7 @@ func (up DistroboxUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutpu
 
 	tracker.ReportStatusChange(up.Config.Title, up.Config.Description)
 	cli := []string{up.binaryPath, "upgrade", "-a"}
-	out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, 0, cli, nil)
+	out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, "root", cli)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = up.Config.Description
 	tmpout.Cli = cli
@@ -97,7 +99,7 @@ func (up DistroboxUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutpu
 		context := *up.Config.UserDescription + " " + user.Name
 		tracker.ReportStatusChange(up.Config.Title, *up.Config.UserDescription+" "+user.Name)
 		cli := []string{up.binaryPath, "upgrade", "-a"}
-		out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, user.UID, cli, nil)
+		out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, user.Name, cli)
 		tmpout = CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli

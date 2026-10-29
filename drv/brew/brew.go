@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 
 	. "github.com/ublue-os/uupd/drv/generic"
+	appConfig "github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
@@ -47,7 +49,7 @@ func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, e
 	}
 
 	cli := []string{up.BrewPath, "update"}
-	out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
+	out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, up.BaseUserName, cli)
 	tmpout := CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Update"
 	tmpout.Cli = cli
@@ -59,8 +61,8 @@ func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, e
 		return &final_output, err
 	}
 
-	cli = []string{up.BrewPath, "upgrade"}
-	out, err = session.RunUID(up.Config.Logger, slog.LevelDebug, up.BaseUser, cli, up.Config.Environment)
+	cli = []string{up.BrewPath, "upgrade", "-y"}
+	out, err = session.RunAsUser(up.Config.Logger, slog.LevelDebug, up.BaseUserName, cli)
 	tmpout = CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Upgrade"
 	tmpout.Cli = cli
@@ -70,15 +72,17 @@ func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, e
 }
 
 type BrewUpdater struct {
-	Config     DriverConfiguration
-	BaseUser   int
-	BrewRepo   string
-	BrewPrefix string
-	BrewCellar string
-	BrewPath   string
+	Config       DriverConfiguration
+	BaseUser     int
+	BaseUserName string
+	BrewRepo     string
+	BrewPrefix   string
+	BrewCellar   string
+	BrewPath     string
 }
 
 func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) {
+	conf := appConfig.Get().Modules.Brew
 	up.Config = DriverConfiguration{
 		Title:       "Brew",
 		Description: "CLI Apps",
@@ -89,10 +93,10 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 
-	up.BrewPrefix = EnvOrFallback(up.Config.Environment, "HOMEBREW_PREFIX", "/home/linuxbrew/.linuxbrew")
-	up.BrewRepo = EnvOrFallback(up.Config.Environment, "HOMEBREW_REPOSITORY", fmt.Sprintf("%s/Homebrew", up.BrewPrefix))
-	up.BrewCellar = EnvOrFallback(up.Config.Environment, "HOMEBREW_CELLAR", fmt.Sprintf("%s/Cellar", up.BrewPrefix))
-	up.BrewPath = EnvOrFallback(up.Config.Environment, "HOMEBREW_PATH", fmt.Sprintf("%s/bin/brew", up.BrewPrefix))
+	up.BrewPrefix = conf.Prefix
+	up.BrewRepo = conf.Repository
+	up.BrewCellar = conf.Cellar
+	up.BrewPath = conf.Path
 
 	if up.Config.DryRun {
 		return up, nil
@@ -103,6 +107,13 @@ func (up BrewUpdater) New(config UpdaterInitConfiguration) (BrewUpdater, error) 
 		return up, err
 	}
 	up.BaseUser = uid
+
+	name, err := session.LookupUserName(uid)
+	if err != nil {
+		slog.Warn("Could not resolve brew owner name, falling back to uid", slog.Int("uid", uid), slog.Any("error", err))
+		name = strconv.Itoa(uid)
+	}
+	up.BaseUserName = name
 
 	return up, nil
 }

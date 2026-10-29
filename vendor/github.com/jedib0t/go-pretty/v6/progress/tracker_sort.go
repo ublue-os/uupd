@@ -9,6 +9,18 @@ const (
 	// SortByNone doesn't do any sorting == sort by insertion order.
 	SortByNone SortBy = iota
 
+	// SortByIndex sorts by the Index field in ascending order. Index 0 comes
+	// first. To reorder done trackers as well, set
+	// StyleOptions.KeepTrackersTogether = true; otherwise done trackers stay
+	// frozen in completion order and only active trackers are sorted by Index.
+	SortByIndex
+
+	// SortByIndexDsc sorts by the Index field in descending order. Higher
+	// indices come first. To reorder done trackers as well, set
+	// StyleOptions.KeepTrackersTogether = true; otherwise done trackers stay
+	// frozen in completion order and only active trackers are sorted by Index.
+	SortByIndexDsc
+
 	// SortByMessage sorts by the Message alphabetically in ascending order.
 	SortByMessage
 
@@ -31,21 +43,50 @@ const (
 // Sort applies the sorting method defined by SortBy.
 func (sb SortBy) Sort(trackers []*Tracker) {
 	switch sb {
+	case SortByIndex:
+		sort.Sort(sortByIndex(trackers))
+	case SortByIndexDsc:
+		sort.Stable(sortByIndexDsc(trackers))
 	case SortByMessage:
 		sort.Sort(sortByMessage(trackers))
 	case SortByMessageDsc:
 		sort.Sort(sortDsc{sortByMessage(trackers)})
 	case SortByPercent:
-		sort.Sort(sortByPercent(trackers))
+		sort.Stable(sortByPercent(trackers))
 	case SortByPercentDsc:
-		sort.Sort(sortDsc{sortByPercent(trackers)})
+		sort.Stable(sortByPercentDsc(trackers))
 	case SortByValue:
-		sort.Sort(sortByValue(trackers))
+		sort.Stable(sortByValue(trackers))
 	case SortByValueDsc:
-		sort.Sort(sortDsc{sortByValue(trackers)})
+		sort.Stable(sortByValueDsc(trackers))
 	default:
 		// no sort
 	}
+}
+
+type sortByIndex []*Tracker
+
+func (sb sortByIndex) Len() int      { return len(sb) }
+func (sb sortByIndex) Swap(i, j int) { sb[i], sb[j] = sb[j], sb[i] }
+func (sb sortByIndex) Less(i, j int) bool {
+	if sb[i].Index == sb[j].Index {
+		// Same index: maintain insertion order (use timeStart as tiebreaker)
+		return sb[i].timeStartValue().Before(sb[j].timeStartValue())
+	}
+	return sb[i].Index < sb[j].Index
+}
+
+type sortByIndexDsc []*Tracker
+
+func (sb sortByIndexDsc) Len() int      { return len(sb) }
+func (sb sortByIndexDsc) Swap(i, j int) { sb[i], sb[j] = sb[j], sb[i] }
+func (sb sortByIndexDsc) Less(i, j int) bool {
+	if sb[i].Index == sb[j].Index {
+		// Same index: maintain insertion order (earlier timeStart first)
+		return sb[i].timeStartValue().Before(sb[j].timeStartValue())
+	}
+	// Reverse: higher index comes first
+	return sb[i].Index > sb[j].Index
 }
 
 type sortByMessage []*Tracker
@@ -60,9 +101,23 @@ func (sb sortByPercent) Len() int      { return len(sb) }
 func (sb sortByPercent) Swap(i, j int) { sb[i], sb[j] = sb[j], sb[i] }
 func (sb sortByPercent) Less(i, j int) bool {
 	if sb[i].PercentDone() == sb[j].PercentDone() {
-		return sb[i].timeStart.Before(sb[j].timeStart)
+		// When percentages are equal, preserve insertion order (earlier timeStart first)
+		return sb[i].timeStartValue().Before(sb[j].timeStartValue())
 	}
 	return sb[i].PercentDone() < sb[j].PercentDone()
+}
+
+type sortByPercentDsc []*Tracker
+
+func (sb sortByPercentDsc) Len() int      { return len(sb) }
+func (sb sortByPercentDsc) Swap(i, j int) { sb[i], sb[j] = sb[j], sb[i] }
+func (sb sortByPercentDsc) Less(i, j int) bool {
+	if sb[i].PercentDone() == sb[j].PercentDone() {
+		// When percentages are equal, preserve insertion order (earlier timeStart first)
+		return sb[i].timeStartValue().Before(sb[j].timeStartValue())
+	}
+	// Reverse: higher percentage comes first
+	return sb[i].PercentDone() > sb[j].PercentDone()
 }
 
 type sortByValue []*Tracker
@@ -70,12 +125,33 @@ type sortByValue []*Tracker
 func (sb sortByValue) Len() int      { return len(sb) }
 func (sb sortByValue) Swap(i, j int) { sb[i], sb[j] = sb[j], sb[i] }
 func (sb sortByValue) Less(i, j int) bool {
-	if sb[i].value == sb[j].value {
-		return sb[i].timeStart.Before(sb[j].timeStart)
+	valueI := sb[i].Value()
+	valueJ := sb[j].Value()
+	if valueI == valueJ {
+		return sb[i].timeStartValue().Before(sb[j].timeStartValue())
 	}
-	return sb[i].value < sb[j].value
+	return valueI < valueJ
+}
+
+type sortByValueDsc []*Tracker
+
+func (sb sortByValueDsc) Len() int      { return len(sb) }
+func (sb sortByValueDsc) Swap(i, j int) { sb[i], sb[j] = sb[j], sb[i] }
+func (sb sortByValueDsc) Less(i, j int) bool {
+	valueI := sb[i].Value()
+	valueJ := sb[j].Value()
+	if valueI == valueJ {
+		// When values are equal, preserve insertion order (earlier timeStart first)
+		return sb[i].timeStartValue().Before(sb[j].timeStartValue())
+	}
+	// Reverse: higher value comes first
+	return valueI > valueJ
 }
 
 type sortDsc struct{ sort.Interface }
 
-func (sd sortDsc) Less(i, j int) bool { return !sd.Interface.Less(i, j) && sd.Interface.Less(j, i) }
+func (sd sortDsc) Less(i, j int) bool {
+	// Reverse the comparison for descending order
+	// When elements are equal (both Less calls return false), preserve insertion order
+	return !sd.Interface.Less(i, j) && sd.Interface.Less(j, i)
+}

@@ -1,8 +1,10 @@
 package generic
 
 import (
+	"errors"
 	"log/slog"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/ublue-os/uupd/pkg/session"
@@ -16,14 +18,6 @@ type UpdaterInitConfiguration struct {
 	Verbose     bool
 	Environment EnvironmentMap
 	Logger      *slog.Logger
-}
-
-func EnvOrFallback(environment EnvironmentMap, key string, fallback string) string {
-	validCase, exists := environment[key]
-	if exists && validCase != "" {
-		return validCase
-	}
-	return fallback
 }
 
 func GetEnvironment(data []string) map[string]string {
@@ -45,20 +39,32 @@ func (up UpdaterInitConfiguration) New() *UpdaterInitConfiguration {
 }
 
 type CommandOutput struct {
-	Stdout  string
-	Failure bool
-	Stderr  error
-	Context string
-	Cli     []string
+	Stdout   string   `json:"stdout"`
+	Failure  bool     `json:"failure"`
+	Stderr   error    `json:"-"`
+	Context  string   `json:"context"`
+	Cli      []string `json:"cli"`
+	Module   string   `json:"module"`
+	ExitCode int      `json:"exit_code"`
 }
 
 func (output CommandOutput) New(out []byte, err error) *CommandOutput {
 	return &CommandOutput{
-		Context: "",
-		Failure: err != nil,
-		Stderr:  nil,
-		Stdout:  string(out),
+		Failure:  err != nil,
+		ExitCode: exitCode(err),
+		Stdout:   string(out),
 	}
+}
+
+func exitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	return 1
 }
 
 type DriverConfiguration struct {
