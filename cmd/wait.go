@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -9,7 +9,7 @@ import (
 	"github.com/ublue-os/uupd/pkg/filelock"
 )
 
-func Wait(cmd *cobra.Command, args []string) {
+func Wait(cmd *cobra.Command, args []string) error {
 	// TODO: rely on bootc to do transaction wait
 	lockFilePath := "/sysroot/ostree/lock"
 
@@ -24,11 +24,12 @@ func Wait(cmd *cobra.Command, args []string) {
 
 		if filelock.IsFileLocked(file) {
 			file.Close() //nolint:errcheck
-			log.Printf("Waiting for lockfile: %s", lockFilePath)
+			slog.Info("Waiting for lockfile", slog.String("path", lockFilePath))
 		} else {
 			file.Close() //nolint:errcheck
 			break
 		}
 	}
-	log.Printf("Done Waiting!")
+	slog.Info("Done Waiting!")
+	return nil
 }

@@ -1,28 +1,15 @@
 package checks
 
 import (
+	"errors"
 	"fmt"
-	"log/slog"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/shirou/gopsutil/v4/load"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/net"
-)
-
-const (
-	envBatMinPercent     string = "UUPD_BATTERY_MIN_PERCENT"
-	envNetMaxBytes       string = "UUPD_NETWORK_MAX_BYTES"
-	envMemMaxPercent     string = "UUPD_MEMORY_MAX_PERCENT"
-	envCpuMaxLoadPercent string = "UUPD_CPU_MAX_LOAD_PERCENT"
-
-	batMinPercent     int = 20
-	netMaxBytes       int = 700000
-	memMaxPercent     int = 90
-	cpuMaxLoadPercent int = 50
+	"github.com/ublue-os/uupd/pkg/config"
 )
 
 type Info struct {
@@ -30,36 +17,20 @@ type Info struct {
 	Err  error
 }
 
-func envOrFallbackInt(key string, fallback int) int {
-	valStr, exists := os.LookupEnv(key)
-	if !exists {
-		return fallback
-	}
-
-	valInt, err := strconv.Atoi(valStr)
-	if err != nil {
-		slog.Default().Warn("Failed to parse environment variable as int",
-			"key", key,
-			"value", valStr,
-			"error", err,
-		)
-		return fallback
-	}
-
-	return valInt
-}
+var ErrMeteredNetwork = errors.New("network is metered")
 
 func Hardware(conn *dbus.Conn) []Info {
 	var checks []Info
-	checks = append(checks, battery(conn))
-	checks = append(checks, network(conn))
-	checks = append(checks, cpu())
-	checks = append(checks, memory())
+	conf := config.Get()
+	checks = append(checks, battery(conn, conf.Checks.Hardware.BatteryMinPercent))
+	checks = append(checks, network(conn, conf.Checks.Hardware.NetMaxBytes))
+	checks = append(checks, cpu(conf.Checks.Hardware.CpuMaxPercent))
+	checks = append(checks, memory(conf.Checks.Hardware.MemMaxPercent))
 
 	return checks
 }
 
-func battery(conn *dbus.Conn) Info {
+func battery(conn *dbus.Conn, min int) Info {
 	const name string = "Battery"
 	upower := conn.Object("org.freedesktop.UPower", "/org/freedesktop/UPower")
 	// first, check if the device is running on battery
@@ -101,7 +72,6 @@ func battery(conn *dbus.Conn) Info {
 			fmt.Errorf("unable to get battery percent from: %v", variant),
 		}
 	}
-	min := envOrFallbackInt(envBatMinPercent, batMinPercent)
 	if batteryPercent < float64(min) {
 		return Info{
 			name,
@@ -138,24 +108,16 @@ func battery(conn *dbus.Conn) Info {
 	}
 }
 
-func network(conn *dbus.Conn) Info {
-	const name string = "Network"
-
+func network_once(conn *dbus.Conn, max uint64) error {
 	nm := conn.Object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
 
 	variant, err := nm.GetProperty("org.freedesktop.NetworkManager.Metered")
 	if err != nil {
-		return Info{
-			name,
-			err,
-		}
+		return err
 	}
 	metered, ok := variant.Value().(uint32)
 	if !ok {
-		return Info{
-			name,
-			fmt.Errorf("Unable to determine if network connection is metered from: %v", variant),
-		}
+		return fmt.Errorf("Unable to determine if network connection is metered from: %v", variant)
 	}
 	// The possible values of "Metered" are documented here:
 	// https://networkmanager.dev/docs/api/latest/nm-dbus-types.html//NMMetered
@@ -167,37 +129,25 @@ func network(conn *dbus.Conn) Info {
 	//     NM_METERED_GUESS_NO  = 4 // Not metered, the value was guessed
 	//
 	if metered == 1 || metered == 3 {
-		return Info{
-			name,
-			fmt.Errorf("network is metered"),
-		}
+		return ErrMeteredNetwork
 	}
 
 	// check if user is connected to network
 	var connectivity uint32
 	err = nm.Call("org.freedesktop.NetworkManager.CheckConnectivity", 0).Store(&connectivity)
 	if err != nil {
-		return Info{
-			name,
-			err,
-		}
+		return err
 	}
 
 	// 4 means fully connected: https://networkmanager.dev/docs/api/latest/nm-dbus-types.html#NMConnectivityState
 	if connectivity != 4 {
-		return Info{
-			name,
-			fmt.Errorf("network not online"),
-		}
+		return fmt.Errorf("network not online")
 	}
 
 	// sample the network for 5 seconds
 	s, err := net.IOCounters(false)
 	if err != nil {
-		return Info{
-			name,
-			err,
-		}
+		return err
 	}
 	current := s[0].BytesRecv
 	var total uint64 = 0
@@ -205,10 +155,7 @@ func network(conn *dbus.Conn) Info {
 		time.Sleep(time.Second)
 		s, err := net.IOCounters(false)
 		if err != nil {
-			return Info{
-				name,
-				err,
-			}
+			return err
 		}
 		new := s[0].BytesRecv
 		total += new - current
@@ -216,22 +163,35 @@ func network(conn *dbus.Conn) Info {
 	}
 	netAvg := total / 5
 
-	max := envOrFallbackInt(envNetMaxBytes, netMaxBytes)
-	if netAvg > uint64(max) {
-		return Info{
-			name,
-			fmt.Errorf("network is busy, with above %d bytes received (%v)", max, netAvg),
+	if netAvg > max {
+		return fmt.Errorf("network is busy, with above %d bytes received (%v)", max, netAvg)
+	}
+	return nil
+}
+
+func network(conn *dbus.Conn, max uint64) Info {
+	const name string = "Network"
+
+	// retry if failed (6 retries max)
+	max_retry := 6
+
+	var err error
+	for range max_retry {
+		err = network_once(conn, max)
+		if err == nil {
+			break
 		}
+		// sleep for 3 seconds
+		time.Sleep(time.Second * 3)
 	}
 
 	return Info{
 		name,
-		nil,
+		err,
 	}
-
 }
 
-func memory() Info {
+func memory(max int) Info {
 	const name string = "Memory"
 	v, err := mem.VirtualMemory()
 	if err != nil {
@@ -240,7 +200,6 @@ func memory() Info {
 			err,
 		}
 	}
-	max := envOrFallbackInt(envMemMaxPercent, memMaxPercent)
 	if v.UsedPercent > float64(max) {
 		return Info{
 			name,
@@ -253,7 +212,7 @@ func memory() Info {
 	}
 }
 
-func cpu() Info {
+func cpu(max int) Info {
 	const name string = "CPU"
 	avg, err := load.Avg()
 	if err != nil {
@@ -263,7 +222,6 @@ func cpu() Info {
 		}
 	}
 	// Check if the CPU load in the 5 minutes was greater than 50%
-	max := envOrFallbackInt(envCpuMaxLoadPercent, cpuMaxLoadPercent)
 	if avg.Load5 > float64(max) {
 		return Info{
 			name,
@@ -287,6 +245,9 @@ func RunHwChecks() error {
 	checkInfo := Hardware(conn)
 	for _, info := range checkInfo {
 		if info.Err != nil {
+			if errors.Is(info.Err, ErrMeteredNetwork) {
+				return ErrMeteredNetwork
+			}
 			return fmt.Errorf("%s, returned error: %v", info.Name, info.Err)
 		}
 	}

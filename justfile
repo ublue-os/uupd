@@ -1,5 +1,5 @@
 set shell := ["bash", "-uc"]
-export UBLUE_ROOT := env_var_or_default("UBLUE_ROOT", "/app/output")
+export UBLUE_ROOT := env("UBLUE_ROOT", "/app/output")
 export TARGET := "uupd"
 export SOURCE_DIR := UBLUE_ROOT + "/" + TARGET
 export RPMBUILD := UBLUE_ROOT + "/rpmbuild"
@@ -13,12 +13,23 @@ build:
 run: build
 	sudo ./output/uupd
 
+build-package:
+	#!/usr/bin/env bash
+	set -eou pipefail
+	podman build -t rpm-builder -f Containerfile.builder
+	podman create --replace --name rpm-export localhost/rpm-builder
+	podman cp rpm-export:/rpms ./output
+	podman rm rpm-export
+
+[private]
 spec: output
 	rpkg spec --outdir "$PWD/output"
 
+[private]
 build-rpm:
 	rpkg local --outdir "$PWD/output"
 
+[private]
 builddep:
 	dnf builddep -y output/uupd.spec
 
@@ -54,7 +65,7 @@ output:
 dnf-install:
 	dnf install -y "output/noarch/*.rpm"
 
-container-build:
+test-container-build:
 	podman build . -t test-container -f Containerfile
 
 container-test:
@@ -68,6 +79,7 @@ container-test:
 	done
 	podman exec -t uupd-test systemd-run --machine 0@ --pipe --quiet /usr/bin/uupd --dry-run
 	podman rm -f uupd-test
+
 clean:
 	rm -rf "$UBLUE_ROOT"
 

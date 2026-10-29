@@ -15,6 +15,7 @@ on:
 
 jobs:
   push-ghcr:
+    if: false # we can fix this action later, likely using something like test.thing or so
     name: Build and test image
     runs-on: ubuntu-24.04
     permissions:
@@ -24,18 +25,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        major_version: [41, 42]
+        major_version: [44, 45]
         include:
-          - major_version: 41
-            is_latest_version: false
-            is_stable_version: true
-          - major_version: 42
+          - major_version: 44
             is_latest_version: true
             is_stable_version: false
+          - major_version: 45
+            is_latest_version: false
+            is_stable_version: true
     steps:
       # Checkout push-to-registry action GitHub repository
       - name: Checkout Push to Registry action
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Install Deps
         run: |

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	. "github.com/ublue-os/uupd/drv/generic"
+	appConfig "github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
@@ -29,6 +30,7 @@ func (up FlatpakUpdater) Steps() int {
 }
 
 func (up FlatpakUpdater) New(config UpdaterInitConfiguration) (FlatpakUpdater, error) {
+	conf := appConfig.Get().Modules.Flatpak
 	userdesc := "Apps for User:"
 	up.Config = DriverConfiguration{
 		Title:           "Flatpak",
@@ -42,7 +44,7 @@ func (up FlatpakUpdater) New(config UpdaterInitConfiguration) (FlatpakUpdater, e
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.usersEnabled = false
 
-	up.binaryPath = EnvOrFallback(up.Config.Environment, "UUPD_FLATPAK_BINARY", "/usr/bin/flatpak")
+	up.binaryPath = conf.BinaryPath
 
 	return up, nil
 }
@@ -81,18 +83,17 @@ func (up FlatpakUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput,
 	tmpout.Failure = err != nil
 	finalOutput = append(finalOutput, *tmpout)
 
-	err = nil
 	for _, user := range up.users {
-		tracker.IncrementSection(err)
 		context := *up.Config.UserDescription + " " + user.Name
 		tracker.ReportStatusChange(up.Config.Title, context)
-		cli := []string{up.binaryPath, "update", "-y"}
-		out, err := session.RunUID(up.Config.Logger, slog.LevelDebug, user.UID, cli, nil)
-		tmpout = CommandOutput{}.New(out, err)
+		cli := []string{up.binaryPath, "update", "-y", "--noninteractive"}
+		out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, user.Name, cli)
+		tmpout := CommandOutput{}.New(out, err)
 		tmpout.Context = context
 		tmpout.Cli = cli
 		tmpout.Failure = err != nil
 		finalOutput = append(finalOutput, *tmpout)
+		tracker.IncrementSection(err)
 	}
 	return &finalOutput, nil
 }

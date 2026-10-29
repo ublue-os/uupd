@@ -14,6 +14,8 @@ import (
 
 	. "github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/rpmostree"
+	appConfig "github.com/ublue-os/uupd/pkg/config"
+	appLogging "github.com/ublue-os/uupd/pkg/logging"
 	"github.com/ublue-os/uupd/pkg/percent"
 )
 
@@ -40,6 +42,7 @@ type SystemUpdateDriver interface {
 	Steps() int
 	Outdated() (bool, error)
 	Check() (bool, error)
+	Staged() (bool, error)
 	Update(tracker *percent.Incrementer) (*[]CommandOutput, error)
 }
 
@@ -100,6 +103,9 @@ func (up SystemUpdater) Outdated() (bool, error) {
 
 func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
+	if up.Config.DryRun {
+		return &finalOutput, nil
+	}
 	var cmd *exec.Cmd
 	binaryPath := up.BinaryPath
 
@@ -136,9 +142,13 @@ func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, 
 }
 
 func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slog.Logger, level slog.Level) {
+	outputLevel := appLogging.CommandOutputLevel(logger, level)
 	for scanner.Scan() {
 
-		logger.Log(context.TODO(), level, scanner.Text())
+		logger.Log(context.TODO(), outputLevel, "Command output",
+			slog.String("status", "running"),
+			slog.String("output", scanner.Text()),
+		)
 		var progress BootcProgress
 
 		err := json.Unmarshal(scanner.Bytes(), &progress)
@@ -181,6 +191,7 @@ func (up SystemUpdater) Steps() int {
 }
 
 func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, error) {
+	conf := appConfig.Get().Modules.System
 	up.Config = DriverConfiguration{
 		Title:       "System",
 		Description: "Bootc",
@@ -189,7 +200,7 @@ func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, err
 		Environment: config.Environment,
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
-	up.BinaryPath = EnvOrFallback(config.Environment, "UUPD_BOOTC_BINARY", "/usr/bin/bootc")
+	up.BinaryPath = conf.BootcBinary
 
 	return up, nil
 }
@@ -208,6 +219,28 @@ func (up SystemUpdater) Check() (bool, error) {
 	updateNecessary := !strings.Contains(string(out), "No changes in:")
 	up.Config.Logger.Debug("Executed update check", slog.String("output", string(out)), slog.Bool("update", updateNecessary))
 	return updateNecessary, nil
+}
+
+func (up SystemUpdater) Staged() (bool, error) {
+	if up.Config.DryRun {
+		return false, nil
+	}
+
+	cmd := exec.Command(up.BinaryPath, "status", "--format=json")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+
+	var status bootcStatus
+	err = json.Unmarshal(out, &status)
+	if err != nil {
+		return false, err
+	}
+
+	staged := status.Status.Staged.Image.Timestamp != ""
+	up.Config.Logger.Debug("Executed staged deployment check", slog.Bool("staged", staged))
+	return staged, nil
 }
 
 func BootcCompatible(binaryPath string) bool {
@@ -249,5 +282,4 @@ func InitializeSystemDriver(initConfiguration UpdaterInitConfiguration) (SystemU
 	}
 	mainSystemDriver = rpmOstreeUpdater
 	return mainSystemDriver, rpmOstreeUpdater.Config, isBootc, err
-
 }

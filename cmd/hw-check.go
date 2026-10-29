@@ -1,16 +1,25 @@
 package cmd
 
 import (
+	"errors"
+	"log/slog"
+
 	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/checks"
-	"log"
 )
 
-func HwCheck(cmd *cobra.Command, args []string) {
+func HwCheck(cmd *cobra.Command, args []string) error {
 	// (some hardware checks require dbus access)
 	err := checks.RunHwChecks()
 	if err != nil {
-		log.Fatalf("Hardware checks failed: %v", err)
+		if errors.Is(err, checks.ErrMeteredNetwork) {
+			slog.Info("Network is metered, skipping hardware checks")
+			return nil
+		}
+		slog.Error("Hardware checks failed", slog.Any("error", err))
+		return err
 	}
-	log.Println("Hardware checks passed")
+	slog.Info("Hardware checks passed")
+
+	return nil
 }

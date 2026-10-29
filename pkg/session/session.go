@@ -7,14 +7,58 @@ import (
 	"io"
 	"log/slog"
 	"os/exec"
-	osUser "os/user"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/godbus/dbus/v5"
+
+	appLogging "github.com/ublue-os/uupd/pkg/logging"
+)
+
+const (
+	notifyTimeout = 15 * time.Second
+
+	shellPath   = "/bin/sh"
+	execWrapper = `exec "$0" "$@"`
+
+	maxLogLineSize = 1024 * 1024
 )
 
 type User struct {
 	UID  int
 	Name string
+}
+
+type syncWriter struct {
+	mutex    sync.Mutex
+	contents strings.Builder
+}
+
+func (writer *syncWriter) Write(data []byte) (int, error) {
+	writer.mutex.Lock()
+	defer writer.mutex.Unlock()
+	return writer.contents.Write(data)
+}
+
+func (writer *syncWriter) String() string {
+	writer.mutex.Lock()
+	defer writer.mutex.Unlock()
+	return writer.contents.String()
+}
+
+func drainLog(logger *slog.Logger, level slog.Level, reader io.Reader, output io.Writer) {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxLogLineSize)
+	for scanner.Scan() {
+		line := scanner.Text()
+		logger.Log(context.TODO(), level, "Command output",
+			slog.String("status", "running"),
+			slog.String("output", line),
+		)
+		_, _ = fmt.Fprintln(output, line)
+	}
+	_, _ = io.Copy(output, reader)
 }
 
 // Runs any specified Command while logging it to the logger
@@ -24,41 +68,65 @@ func RunLog(logger *slog.Logger, level slog.Level, command *exec.Cmd) ([]byte, e
 		return command.CombinedOutput()
 	}
 
-	stdout, _ := command.StdoutPipe()
-	stderr, _ := command.StderrPipe()
-	multiReader := io.MultiReader(stdout, stderr)
-	actualLogger := slog.Default()
-	err := command.Start()
+	// Command output is logged at debug level for text output, but JSON
+	// consumers need it with the default log level, so promote it there.
+	level = appLogging.CommandOutputLevel(logger, level)
+
+	stdout, err := command.StdoutPipe()
 	if err != nil {
-		actualLogger.Warn("Error occurred starting external command", slog.Any("error", err))
+		return nil, err
+	}
+	stderr, err := command.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := command.Start(); err != nil {
+		logger.Warn("Error occurred starting external command", slog.Any("error", err))
 		return []byte{}, err
 	}
-	scanner := bufio.NewScanner(multiReader)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		actualLogger.Log(context.TODO(), level, scanner.Text())
-	}
+
+	output := &syncWriter{}
+	var drains sync.WaitGroup
+	drains.Add(2)
+	go func() {
+		defer drains.Done()
+		drainLog(logger, level, stdout, output)
+	}()
+	go func() {
+		defer drains.Done()
+		drainLog(logger, level, stderr, output)
+	}()
+	drains.Wait()
+
 	err = command.Wait()
 	if err != nil {
-		actualLogger.Warn("Error occurred while waiting for external command", slog.Any("error", err))
-		return []byte{}, err
+		logger.Warn("Error occurred while waiting for external command", slog.Any("error", err))
 	}
 
-	return scanner.Bytes(), scanner.Err()
+	return []byte(output.String()), err
 }
 
-func RunUID(logger *slog.Logger, level slog.Level, uid int, command []string, env map[string]string) ([]byte, error) {
-	user, err := osUser.LookupId(fmt.Sprintf("%d", uid))
+func wrapperArgs(command []string) []string {
+	return append([]string{
+		shellPath,
+		"-c",
+		execWrapper,
+	}, command...)
+}
 
-	if err != nil {
-		return []byte{}, fmt.Errorf("failed to lookup UID: %d, returned error: %v", uid, err)
-	}
-	cmdArgs := []string{
+func pkexecArgs(name string, command []string) []string {
+	args := []string{
 		"/usr/bin/pkexec",
 		"-u",
-		user.Username,
+		name,
 	}
-	cmdArgs = append(cmdArgs, command...)
+
+	return append(args, wrapperArgs(command)...)
+}
+
+func RunAsUser(logger *slog.Logger, level slog.Level, name string, command []string) ([]byte, error) {
+	cmdArgs := pkexecArgs(name, command)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 
@@ -102,20 +170,54 @@ func ListUsers() ([]User, error) {
 		if err != nil {
 			return nil, err
 		}
-		if parsed.UID == 0 {
+		users = append(users, parsed)
+	}
+
+	return filterUsers(users, slog.Default()), nil
+}
+
+func filterUsers(users []User, logger *slog.Logger) []User {
+	updateTargets := make([]User, 0, len(users))
+
+	for _, user := range users {
+		if user.UID == 0 {
 			continue
 		}
 
-		users = append(users, parsed)
+		record, err := LookupPasswd(user.UID)
+		if err != nil {
+			logger.Warn("Skipping user that cannot be resolved, this is not a failed update",
+				slog.Int("uid", user.UID),
+				slog.String("name", user.Name),
+				slog.Any("error", err),
+			)
+			continue
+		}
+
+		if !IsUpdateTarget(record) {
+			logger.Debug("Skipping non-interactive user",
+				slog.Int("uid", user.UID),
+				slog.String("name", user.Name),
+				slog.String("home", record.Home),
+			)
+			continue
+		}
+
+		updateTargets = append(updateTargets, user)
 	}
-	return users, nil
+
+	return updateTargets
 }
 
 func Notify(users []User, summary string, body string, urgency string) error {
 	for _, user := range users {
+		ctx, cancel := context.WithTimeout(context.Background(), notifyTimeout)
+		cmd := exec.CommandContext(ctx, "/usr/bin/machinectl", "shell", fmt.Sprintf("%d@", user.UID), "/usr/bin/notify-send", "--urgency", urgency, "--app-name", "uupd", summary, body)
 		// we don't care if these exit
-		cmd := exec.Command("/usr/bin/machinectl", "shell", fmt.Sprintf("%d@", user.UID), "/usr/bin/notify-send", "--urgency", urgency, "--app-name", "uupd", summary, body)
-		_ = cmd.Run()
+		if err := cmd.Run(); err != nil {
+			slog.Debug("Failed sending notification to user", slog.Int("uid", user.UID), slog.Any("error", err))
+		}
+		cancel()
 	}
 	return nil
 }
