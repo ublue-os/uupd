@@ -1,31 +1,4 @@
 #!/usr/bin/env bash
-# Run the uupd end-to-end upgrade test against one image, using bcvk.
-#
-# How it works:
-#
-#   1. Build a "distroless" test image: the base image plus the statically
-#      linked uupd binary and its units. No dnf, no rpm, no in-guest build.
-#   2. Install that image to a persistent libvirt VM with bcvk. Host container
-#      storage is shared read-only with the guest, so the guest can resolve
-#      image references without podman or a registry.
-#   3. Build the same image again with MARKER=1 and retag it. This is the image
-#      uupd should upgrade to.
-#   4. Run `uupd` in the guest and check that it staged the marker image.
-#   5. Reboot the guest and check that the marker file from the new image is
-#      present and that the new image is the booted one.
-#
-# Requirements on the host: root, KVM, podman, libvirt (+ virtiofsd, OVMF) and
-# bcvk >= 0.22. Run it with sudo.
-#
-# Usage:
-#   sudo ./tests/e2e/run-bcvk-e2e.sh <image-name> [base-image]
-#   sudo ./tests/e2e/run-bcvk-e2e.sh --list
-#
-# Environment:
-#   FILESYSTEM   root filesystem for the installed VM (default: per image)
-#   DISK_SIZE    VM disk size (default: 20G)
-#   MEMORY       VM memory (default: 4G)
-#   KEEP_VM      set to 1 to keep the VM around for debugging
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -174,10 +147,6 @@ podman pull --retry 5 "$BASE_IMAGE"
 
 log "building the base test image"
 build_image 0
-# Capture the digest of the image that will be installed to the VM (the "booted"
-# image, per the e2e contract). Booting may re-resolve the image, but the
-# digest is stable, so this is what we want the guest to know in case bootc
-# is not present in the guest userland.
 BOOTED_DIGEST="$(
     podman image inspect --format '{{.Digest}}' "$TEST_IMAGE" 2>/dev/null || true
 )"
