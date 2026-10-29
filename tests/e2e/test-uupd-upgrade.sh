@@ -1,20 +1,4 @@
 #!/usr/bin/env bash
-# uupd end-to-end test, executed *inside* the VM over SSH.
-#
-# The test runs in two phases because the point of the test is to survive a
-# reboot:
-#
-#   TEST_PHASE=phase1  runs before the reboot. It exercises the read-only uupd
-#                      subcommands and then runs `uupd` so that the upgrade
-#                      image is staged.
-#   TEST_PHASE=phase2  runs after the reboot. It verifies that the marker file
-#                      from the upgrade image is present and that the image
-#                      stored in phase1 is the one that is now booted.
-#
-# Keep this script free of optional tooling (jq, awk, grep -o, python, ...).
-# Some of the images under test are built without a package manager and ship a
-# deliberately small userland (Dakota uses uutils coreutils), so only bash and
-# the tools that are required by bootc/bcvk are assumed to be available.
 set -euo pipefail
 
 MARKER_FILE="/usr/share/uupd-testing"
@@ -33,16 +17,6 @@ need() {
     command -v "$1" >/dev/null 2>&1 || fail "$1 not found in the test image"
 }
 
-# read_status() populates booted_digests and staged_digests.
-#
-# Normal path: use `bootc status --format=yaml` to query the guest's bootc
-# deployment, exactly like the upstream uupd e2e test does. This requires
-# bootc (and its systemd units) to be present in the guest.
-#
-# Fallback path (when bootc is deliberately absent from a minimal guest
-# image): the host already knows the correct digests, so they are passed in
-# via BOOTED_DIGEST and EXPECTED_DIGEST environment variables. Both are
-# required for the fallback to work, so if either is missing/unset we fail.
 declare -a booted_digests=() staged_digests=()
 
 read_status() {
@@ -52,13 +26,6 @@ read_status() {
     else
         [[ -n "${BOOTED_DIGEST:-}" ]] || fail "BOOTED_DIGEST not set in guest (bootc unavailable)"
         [[ -n "${EXPECTED_DIGEST:-}" ]] || fail "EXPECTED_DIGEST not set in guest (bootc unavailable)"
-        # The guest may contain more than one deployment image (e.g. the
-        # deployment image plus cached update metadata), so we cannot know
-        # exactly how many digests bootc would return here. We only know the
-        # single digests the host staged + the one the host expects, so the
-        # guest records the host-provided digest as its single booted digest.
-        # (booted_digests and staged_digests are initialised above as empty
-        # arrays, so we can populate them here as needed)
         unset booted_digests
         declare -a booted_digests=("$BOOTED_DIGEST")
         declare -a staged_digests=("$EXPECTED_DIGEST")
@@ -187,8 +154,6 @@ phase2() {
     contains_digest "$expected" "${booted_digests[@]}" ||
         fail "the booted image does not match the image staged by uupd"
 
-    # The host still offers the same image, so there should be nothing left to
-    # update now that we booted it.
     local rc=0
     uupd --update-check || rc=$?
     [[ $rc -eq 77 ]] ||

@@ -33,7 +33,6 @@ jobs:
           - name: bazzite
           - name: aurora
           - name: bluefin
-          - name: fedora-bootc-rawhide
           - name: dakota
 
     steps:

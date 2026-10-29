@@ -1,20 +1,3 @@
-# E2E test image for uupd.
-#
-# This is deliberately "distroless": uupd is a statically linked Go binary, so
-# we install it by copying the binary and its systemd/polkit files into the base
-# image. No package manager is involved, which means this works on images that
-# do not ship dnf/rpm at all (for example Dakota, which is built from source
-# with BuildStream).
-#
-# Build the binary first (`make build`), then:
-#
-#   podman build -f tests/e2e/Containerfile.e2e \
-#     --build-arg BASE_IMAGE=ghcr.io/ublue-os/bluefin:stable \
-#     -t localhost/uupd-test:latest .
-#
-# Pass MARKER=1 to build the image that uupd should upgrade to. The marker file
-# only exists in that image, so finding it after a reboot proves the upgrade
-# actually happened.
 ARG BASE_IMAGE
 
 FROM ${BASE_IMAGE}
@@ -28,6 +11,4 @@ RUN if [ "${MARKER}" = "1" ]; then \
         mkdir -p /usr/share && touch /usr/share/uupd-testing; \
     fi
 
-# Images built from bootc images normally already have this label, but set it
-# explicitly so bcvk always recognises the test image as a bootc image.
 LABEL containers.bootc=1
