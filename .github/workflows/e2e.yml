@@ -13,67 +13,89 @@ on:
       - "**.md"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e:
     name: E2E Test uupd on ${{ matrix.image.name }}
     runs-on: ubuntu-26.04
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image:
-              name: bazzite
-            base_image: ghcr.io/ublue-os/bazzite:stable
-          - image:
-              name: aurora
-            base_image: ghcr.io/ublue-os/aurora:stable
-          - image:
-              name: bluefin
-            base_image: ghcr.io/ublue-os/bluefin:stable
-          - image:
-              name: fedora-bootc-rawhide
-            base_image: ghcr.io/fedora/fedora-bootc:rawhide
-          - image:
-              name: dakota
-            base_image: ghcr.io/projectbluefin/dakota:stable
+        image:
+          - name: bazzite
+          - name: aurora
+          - name: bluefin
+          - name: fedora-bootc-rawhide
+          - name: dakota
 
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      - name: Install deps
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Free up disk space
         run: |
-          # Install just (required by container-rpm-build)
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo podman system prune -af || true
+
+      - name: Install bcvk and the virtualization stack
+        run: |
           sudo apt-get update
-          sudo apt-get install -y just
-          
-          # Add plucky repos for Ubuntu 24.04 to get newer packages
-          if [ "$(dpkg --print-architecture)" = "amd64" ]; then
-            echo "deb http://archive.ubuntu.com/ubuntu plucky universe main" | sudo tee /etc/apt/sources.list.d/plucky.list
-          else
-            echo "deb http://ports.ubuntu.com/ubuntu-ports plucky universe main" | sudo tee /etc/apt/sources.list.d/plucky.list
+          sudo apt-get install -y --no-install-recommends \
+            curl \
+            podman \
+            qemu-system-x86 \
+            qemu-utils \
+            libvirt-daemon-system \
+            libvirt-clients \
+            virtiofsd \
+            ovmf
+          sudo systemctl enable --now libvirtd
+
+          # GitHub-hosted runners expose /dev/kvm, but not always with permissions
+          # that allow the rootless runner user to use it.
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm
           fi
-          echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-retries
-          
-          # Install base dependencies
-          sudo apt-get update
-          sudo apt-get install -y --allow-downgrades qemu-system-x86 || qemu-system-x86-hwe libvirt-daemon-system podman rsync
-          
-          # Install tmt via pip
-          pip3 install --break-system-packages tmt
 
-      - name: Build uupd RPM
-        run: |
-          make build
+          # libvirt's AppArmor profile does not allow access to the container
+          # storage that bcvk shares with the VM. This is a throwaway runner, so
+          # disable AppArmor rather than maintaining a local profile.
+          sudo systemctl stop apparmor 2>/dev/null || true
+          sudo systemctl disable apparmor 2>/dev/null || true
 
-      - name: Build test container image
-        run: |
-          podman build \
-            -t localhost/uupd-test \
-            --build-arg BASE_IMAGE=${{ matrix.base_image }} \
-            -f tests/e2e/Containerfile.e2e \
-            .
+          BCVK_VERSION="0.22.0"
+          BCVK_TARBALL="bcvk-x86_64-unknown-linux-gnu.tar.gz"
+          BCVK_URL="https://github.com/bootc-dev/bcvk/releases/download/v${BCVK_VERSION}"
+          curl -fsSL -o "$BCVK_TARBALL" "${BCVK_URL}/${BCVK_TARBALL}"
+          curl -fsSL -o "${BCVK_TARBALL}.sha256" "${BCVK_URL}/${BCVK_TARBALL}.sha256"
+          sha256sum -c "${BCVK_TARBALL}.sha256"
+          tar -xzf "$BCVK_TARBALL"
+          sudo install -m 0755 bcvk /usr/local/bin/bcvk
+          bcvk --version
 
-      - name: Run e2e tests
+      - name: Log in to GHCR
+        # Public pulls work anonymously, but authenticating avoids the 403s
+        # anonymous pulls occasionally get from ghcr.io.
         run: |
-          tmt run -a plan --name "e2e/${{ matrix.image.name }}" --debug
+          echo "${{ secrets.GITHUB_TOKEN }}" |
+            sudo podman login ghcr.io -u '${{ github.actor }}' --password-stdin
+
+      - name: Build uupd
+        run: make build
+
+      - name: Run e2e test
+        run: sudo ./tests/e2e/run-bcvk-e2e.sh '${{ matrix.image.name }}'

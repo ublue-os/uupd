@@ -1,34 +1,33 @@
-# Multi-stage build to get uupd into the tested image
-# Based on https://github.com/ublue-os/uupd/issues/205
+# E2E test image for uupd.
+#
+# This is deliberately "distroless": uupd is a statically linked Go binary, so
+# we install it by copying the binary and its systemd/polkit files into the base
+# image. No package manager is involved, which means this works on images that
+# do not ship dnf/rpm at all (for example Dakota, which is built from source
+# with BuildStream).
+#
+# Build the binary first (`make build`), then:
+#
+#   podman build -f tests/e2e/Containerfile.e2e \
+#     --build-arg BASE_IMAGE=ghcr.io/ublue-os/bluefin:stable \
+#     -t localhost/uupd-test:latest .
+#
+# Pass MARKER=1 to build the image that uupd should upgrade to. The marker file
+# only exists in that image, so finding it after a reboot proves the upgrade
+# actually happened.
+ARG BASE_IMAGE
 
-ARG BASE_IMAGE="${BASE_IMAGE}"
-ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-44}"
+FROM ${BASE_IMAGE}
 
-# Base stage
-FROM ${BASE_IMAGE} AS base
+COPY output/uupd /usr/bin/uupd
+COPY uupd.service uupd-manual.service uupd.timer /usr/lib/systemd/system/
+COPY uupd.rules /usr/share/polkit-1/rules.d/uupd.rules
 
-# Builder stage
-FROM base AS builder
+ARG MARKER=0
+RUN if [ "${MARKER}" = "1" ]; then \
+        mkdir -p /usr/share && touch /usr/share/uupd-testing; \
+    fi
 
-RUN --mount=type=cache,dst=/var/cache/libdnf5 <<EOF
-dnf config-manager setopt keepcache=1
-dnf -y install golang
-EOF
-
-COPY . /src
-WORKDIR /src
-
-RUN <<EOF
-# fix go build error as /root is /var/roothome
-rm -rf /root
-make install DESTDIR=/output
-# we want to use the config from the image
-rm -f /output/etc/uupd/config.json
-EOF
-
-# System stage
-FROM base AS system
-
-COPY --from=builder /output /
-
-CMD [ "/sbin/init" ]
+# Images built from bootc images normally already have this label, but set it
+# explicitly so bcvk always recognises the test image as a bootc image.
+LABEL containers.bootc=1

@@ -105,19 +105,22 @@ test directory="":
 		go test -v -coverprofile=$t ./... $@ && go tool cover -html=$t && unlink $t
 	fi
 
-# E2E testing for uupd using TMT
-# Tests run against various image-based systems
+# E2E testing for uupd using bcvk
+# Tests install uupd into various image-based systems without dnf/rpm and
+# verify a full bootc upgrade cycle in a VM. Requires Linux with KVM, podman,
+# libvirt, virtiofsd, OVMF and bcvk, and runs with sudo.
 
 # List available e2e test images
 e2e-list:
-	#!/usr/bin/env bash
-	find tests/e2e/*.fmf -name "*.fmf" -exec basename {} .fmf \; | sort
+	./tests/e2e/run-bcvk-e2e.sh --list
 
 # Run all e2e tests
 e2e:
 	#!/usr/bin/env bash
 	set -eou pipefail
-	tmt run -a plan --name e2e --debug
+	for image in $(./tests/e2e/run-bcvk-e2e.sh --list); do
+		sudo ./tests/e2e/run-bcvk-e2e.sh "$image"
+	done
 
 # Run a specific e2e test image
 e2e-image name="":
@@ -126,19 +129,7 @@ e2e-image name="":
 	if [ "{{name}}" = "" ]; then
 		echo "Usage: just e2e-image name=<image-name>"
 		echo "Available images:"
-		find tests/e2e/*.fmf -name "*.fmf" -exec basename {} .fmf \; | sort
+		./tests/e2e/run-bcvk-e2e.sh --list
 		exit 1
 	fi
-	tmt run -a plan --name "e2e/{{name}}" --debug
-
-# Run specific e2e test file
-e2e-file file="":
-	#!/usr/bin/env bash
-	set -eou pipefail
-	if [ "{{file}}" = "" ]; then
-		echo "Usage: just e2e-file file=<test-file-name>"
-		echo "Available test files:"
-		find tests/e2e/*.fmf -exec basename {} .fmf \; | sort
-		exit 1
-	fi
-	tmt run -a plan --name "e2e/{{file}}" --debug
+	sudo ./tests/e2e/run-bcvk-e2e.sh "{{name}}"
