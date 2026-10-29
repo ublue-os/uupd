@@ -157,7 +157,7 @@ bcvk libvirt run \
     --name "$VM_NAME" \
     --replace \
     --update-from-host \
-    --pull=always \
+    --target-transport=containers-storage \
     --filesystem "$FILESYSTEM" \
     --disk-size "$DISK_SIZE" \
     --memory "$MEMORY" \
