@@ -58,7 +58,7 @@ else
 	@echo "  sudo systemctl enable --now $(BINARY).timer"
 endif
 
-install-bin: build ## Install only the uupd binary
+install-bin: ## Install only the uupd binary
 	install -Dpm 0755 $(BIN) $(DESTDIR)$(BINDIR)/$(BINARY)
 
 install-units: ## Install the systemd units and polkit rule
