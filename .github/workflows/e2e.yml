@@ -83,7 +83,9 @@ jobs:
           curl -fsSL -o "${BCVK_TARBALL}.sha256" "${BCVK_URL}/${BCVK_TARBALL}.sha256"
           sha256sum -c "${BCVK_TARBALL}.sha256"
           tar -xzf "$BCVK_TARBALL"
-          sudo install -m 0755 bcvk /usr/local/bin/bcvk
+          # bcvk tarball extracts into a subdirectory; find the binary
+          BCVK_BIN=$(find . -name bcvk -type f | head -1)
+          sudo install -m 0755 "$BCVK_BIN" /usr/local/bin/bcvk
           bcvk --version
 
       - name: Log in to GHCR
