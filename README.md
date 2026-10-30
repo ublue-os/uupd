@@ -110,6 +110,7 @@ The `Makefile` is the primary interface for building, testing and installing. Ru
 - `make build` builds the binary into `output/uupd`
 - `make test` runs the unit tests (`go test -v -cover ./...`)
 - `make test-cover` writes a coverage profile to `output/coverage.out` and prints the coverage summary
+- `make e2e` / `make e2e-image IMAGE=<name>` run the bootc VM end-to-end suite (see below)
 - `make vet` runs `go vet ./...`
 - `make check` runs both `vet` and `test`
 - `make fmt` formats the Go sources, and `make fmt-check` verifies formatting
@@ -156,6 +157,32 @@ make install PREFIX=/usr/local
 > The supplied systemd units call `/usr/bin/uupd`, so a non-default `PREFIX` also requires adjusting the units.
 
 `sudo make uninstall` removes the installed files but preserves the config in `/etc/uupd`.
+
+## End-to-end tests
+
+The e2e suite builds a static `uupd`, installs it into a bootc base image, boots
+that image in a VM with [bcvk](https://github.com/bootc-dev/bcvk), rebuilds the
+same tag with a marker file, and checks that `uupd` stages the upgrade and that
+the marker is present after reboot.
+
+Supported images (`make e2e-list`):
+
+- `bluefin`, `aurora`, `bazzite` (`ghcr.io/ublue-os/...:stable`)
+- `dakota` (`ghcr.io/projectbluefin/dakota:stable`)
+- `fedora-bootc-rawhide` (`quay.io/fedora/fedora-bootc:rawhide`)
+
+Requirements: Linux with KVM, root, `podman`, `libvirt`, `virtiofsd`, OVMF/edk2
+and `bcvk` (≥ 0.22 for `--update-from-host`).
+
+```
+make build
+make e2e-image IMAGE=bluefin   # one image
+make e2e                       # every image
+KEEP_VM=1 make e2e-image IMAGE=bluefin   # leave the VM running on failure/success
+```
+
+CI runs bluefin, aurora, bazzite and dakota on every PR (see
+`.github/workflows/e2e.yml`). `fedora-bootc-rawhide` is local/manual only.
 
 ## Development System Installation
 

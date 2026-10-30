@@ -1,0 +1,14 @@
+ARG BASE_IMAGE
+
+FROM ${BASE_IMAGE}
+
+COPY output/uupd /usr/bin/uupd
+COPY uupd.service uupd-manual.service uupd.timer /usr/lib/systemd/system/
+COPY uupd.rules /usr/share/polkit-1/rules.d/uupd.rules
+
+ARG MARKER=0
+RUN if [ "${MARKER}" = "1" ]; then \
+        mkdir -p /usr/share && touch /usr/share/uupd-testing; \
+    fi
+
+LABEL containers.bootc=1

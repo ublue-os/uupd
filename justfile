@@ -106,3 +106,24 @@ test-coverage directory="":
 	else
 		go test -v -coverprofile=$t ./... $@ && go tool cover -html=$t && unlink $t
 	fi
+
+e2e-list:
+	./tests/e2e/e2e.sh --list
+
+e2e:
+	#!/usr/bin/env bash
+	set -eou pipefail
+	make build
+	sudo ./tests/e2e/e2e.sh --all
+
+e2e-image name="":
+	#!/usr/bin/env bash
+	set -eou pipefail
+	if [ "{{name}}" = "" ]; then
+		echo "Usage: just e2e-image name=<image-name>"
+		echo "Available images:"
+		./tests/e2e/e2e.sh --list
+		exit 1
+	fi
+	make build
+	sudo ./tests/e2e/e2e.sh "{{name}}"
