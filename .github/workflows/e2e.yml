@@ -45,29 +45,14 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Free up disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo podman system prune -af || true
+      - name: Set up bootc host (KVM/libvirt/virtiofsd)
+        uses: bootc-dev/actions/bootc-host-setup@main
+        with:
+          libvirt: 'true'
 
-      - name: Install bcvk and the virtualization stack
+      - name: Install bcvk (>= 0.22 required for --update-from-host)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            curl \
-            podman \
-            qemu-system-x86 \
-            qemu-utils \
-            libvirt-daemon-system \
-            libvirt-clients \
-            virtiofsd \
-            ovmf
           sudo systemctl enable --now libvirtd
-
-          if [[ -e /dev/kvm ]]; then
-            sudo chmod 666 /dev/kvm
-          fi
-
           sudo systemctl stop apparmor 2>/dev/null || true
           sudo systemctl disable apparmor 2>/dev/null || true
 
