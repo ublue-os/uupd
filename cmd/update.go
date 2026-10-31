@@ -148,6 +148,11 @@ func Update(cmd *cobra.Command, args []string) error {
 		slog.Error("Failed to get force flag", "error", err)
 		return err
 	}
+	ciFlag, err := cmd.Flags().GetBool("ci")
+	if err != nil {
+		slog.Error("Failed to get ci flag", "error", err)
+		return err
+	}
 
 	disableModuleSystem := modules.System.Disable
 	disableModuleFlatpak := modules.Flatpak.Disable
@@ -174,8 +179,8 @@ func Update(cmd *cobra.Command, args []string) error {
 	}
 
 	initConfiguration := drv.UpdaterInitConfiguration{}.New()
-	_, exists := os.LookupEnv("CI")
-	initConfiguration.Ci = exists
+	_, ciEnv := os.LookupEnv("CI")
+	initConfiguration.Ci = ciFlag || ciEnv
 	initConfiguration.DryRun = dryRun
 	initConfiguration.Verbose = verboseRun
 
