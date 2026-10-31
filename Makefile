@@ -97,13 +97,13 @@ test-cover: | $(OUTPUT_DIR) ## Run tests and write output/coverage.out
 	$(GO) tool cover -func=$(OUTPUT_DIR)/coverage.out
 
 IMAGE ?=
-e2e: build ## Run e2e tests for every supported image (sudo)
+e2e: ## Run e2e tests for every supported image (sudo)
 	sudo ./tests/e2e/e2e.sh --all
 
 e2e-list: ## List e2e images
 	./tests/e2e/e2e.sh --list
 
-e2e-image: build ## Run e2e for one image: make e2e-image IMAGE=bluefin
+e2e-image: ## Run e2e for one image: make e2e-image IMAGE=bluefin
 	@if [ -z "$(IMAGE)" ]; then \
 		echo "Usage: make e2e-image IMAGE=<name>"; \
 		./tests/e2e/e2e.sh --list; \

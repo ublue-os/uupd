@@ -39,14 +39,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+      - name: Free up disk space
+        uses: HastD/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v0.1.2
         with:
-          go-version-file: go.mod
-          cache: true
+          swapoff: true
 
       - name: Set up bootc host (KVM/libvirt/virtiofsd)
-        uses: bootc-dev/actions/bootc-host-setup@main
+        uses: bootc-dev/actions/bootc-host-setup@de95828443214c605662555316955bd1425b448d # main
         with:
           libvirt: 'true'
 
@@ -56,11 +55,12 @@ jobs:
           sudo systemctl stop apparmor 2>/dev/null || true
           sudo systemctl disable apparmor 2>/dev/null || true
 
+          # renovate: datasource=github-releases depName=bootc-dev/bcvk
           BCVK_VERSION="0.22.0"
           BCVK_TARBALL="bcvk-x86_64-unknown-linux-gnu.tar.gz"
           BCVK_URL="https://github.com/bootc-dev/bcvk/releases/download/v${BCVK_VERSION}"
-          curl -fsSL -o "$BCVK_TARBALL" "${BCVK_URL}/${BCVK_TARBALL}"
-          curl -fsSL -o "${BCVK_TARBALL}.sha256" "${BCVK_URL}/${BCVK_TARBALL}.sha256"
+          curl --proto '=https' --tlsv1.2 -fsSL -o "$BCVK_TARBALL" "${BCVK_URL}/${BCVK_TARBALL}"
+          curl --proto '=https' --tlsv1.2 -fsSL -o "${BCVK_TARBALL}.sha256" "${BCVK_URL}/${BCVK_TARBALL}.sha256"
           sha256sum -c "${BCVK_TARBALL}.sha256"
           tar -xzf "$BCVK_TARBALL"
           sudo install -m 0755 bcvk-x86_64-unknown-linux-gnu /usr/local/bin/bcvk
@@ -70,9 +70,6 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" |
             sudo podman login ghcr.io -u '${{ github.actor }}' --password-stdin
-
-      - name: Build uupd
-        run: make build
 
       - name: Run e2e test
         run: sudo ./tests/e2e/e2e.sh '${{ matrix.image.name }}'

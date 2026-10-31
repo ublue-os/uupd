@@ -72,10 +72,10 @@ find_virtiofsd() {
 }
 
 build_image() {
-	local marker="$1"
+	local target="$1"
 	podman build \
 		--build-arg BASE_IMAGE="$BASE_IMAGE" \
-		--build-arg MARKER="$marker" \
+		--target "$target" \
 		-t "$TEST_IMAGE" \
 		-f "$CONTAINERFILE" \
 		.
@@ -134,7 +134,6 @@ run_one() {
 
 	[[ -f "$CONTAINERFILE" ]] || die "missing $CONTAINERFILE"
 	[[ -f "$GUEST_SCRIPT" ]] || die "missing $GUEST_SCRIPT"
-	[[ -f output/uupd ]] || die "output/uupd missing; run 'make build' first"
 
 	cleanup() {
 		local rc=$?
@@ -156,8 +155,8 @@ run_one() {
 	log "pulling $BASE_IMAGE"
 	podman pull --retry 5 "$BASE_IMAGE"
 
-	log "building the base test image (MARKER=0)"
-	build_image 0
+	log "building the base test image"
+	build_image base
 
 	log "installing $TEST_IMAGE to a VM with bcvk"
 	bcvk libvirt run \
@@ -172,8 +171,8 @@ run_one() {
 		--ssh-wait \
 		"$TEST_IMAGE"
 
-	log "building the upgrade image (MARKER=1) and retagging $TEST_IMAGE"
-	build_image 1
+	log "building the upgrade image and retagging $TEST_IMAGE"
+	build_image upgraded
 	local upgrade_digest
 	upgrade_digest="$(podman image inspect --format '{{.Digest}}' "$TEST_IMAGE" || true)"
 	log "upgrade image digest: ${upgrade_digest:-<unknown>}"

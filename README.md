@@ -160,10 +160,11 @@ make install PREFIX=/usr/local
 
 ## End-to-end tests
 
-The e2e suite builds a static `uupd`, installs it into a bootc base image, boots
-that image in a VM with [bcvk](https://github.com/bootc-dev/bcvk), rebuilds the
-same tag with a marker file, and checks that `uupd` stages the upgrade and that
-the marker is present after reboot.
+The e2e suite builds `uupd` in a builder stage inside the container image,
+installs it into a bootc base image, boots that image in a VM with
+[bcvk](https://github.com/bootc-dev/bcvk), rebuilds the same tag as an upgraded
+image, and checks that `uupd` stages the upgrade and that the VM reboots into
+it.
 
 Supported images (`make e2e-list`):
 
@@ -175,7 +176,6 @@ Requirements: Linux with KVM, root, `podman`, `libvirt`, `virtiofsd`, OVMF/edk2
 and `bcvk` (≥ 0.22 for `--update-from-host`).
 
 ```
-make build
 make e2e-image IMAGE=bluefin   # one image
 make e2e                       # every image
 KEEP_VM=1 make e2e-image IMAGE=bluefin   # leave the VM running on failure/success

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MARKER_FILE="/usr/share/uupd-testing"
 STATE_DIR="/var/lib/uupd-e2e"
 STAGED_DIGEST_FILE="${STATE_DIR}/staged-digest"
 UUPD_LOG="/var/log/uupd-e2e.log"
@@ -49,7 +48,6 @@ phase1() {
 	[[ $EUID -eq 0 ]] || fail "must run as root"
 	command -v uupd >/dev/null || fail "uupd is not installed"
 	command -v bootc >/dev/null || fail "bootc is not installed"
-	[[ ! -e "$MARKER_FILE" ]] || fail "$MARKER_FILE already exists in the booted image"
 
 	log "uupd version: $(uupd --version 2>/dev/null || echo unknown)"
 
@@ -98,7 +96,6 @@ phase1() {
 
 phase2() {
 	log "=== phase 2: verify the staged image booted ==="
-	[[ -f "$MARKER_FILE" ]] || fail "$MARKER_FILE is missing after the reboot"
 	[[ -s "$STAGED_DIGEST_FILE" ]] || fail "$STAGED_DIGEST_FILE is missing; phase 1 did not complete"
 
 	local expected booted
@@ -113,7 +110,7 @@ phase2() {
 	uupd update-check || rc=$?
 	[[ $rc -eq 77 ]] || fail "uupd update-check still reports an update after the reboot (exit $rc)"
 
-	log "PASS: marker is present and the booted image matches what uupd staged"
+	log "PASS: the booted image matches what uupd staged"
 }
 
 case "${TEST_PHASE:-}" in

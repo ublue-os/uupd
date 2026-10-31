@@ -113,7 +113,6 @@ e2e-list:
 e2e:
 	#!/usr/bin/env bash
 	set -eou pipefail
-	make build
 	sudo ./tests/e2e/e2e.sh --all
 
 e2e-image name="":
@@ -125,5 +124,4 @@ e2e-image name="":
 		./tests/e2e/e2e.sh --list
 		exit 1
 	fi
-	make build
 	sudo ./tests/e2e/e2e.sh "{{name}}"

@@ -1,14 +1,27 @@
 ARG BASE_IMAGE
 
-FROM ${BASE_IMAGE}
+# Build uupd inside the container so the e2e suite does not need a Go
+# toolchain on the host.
+FROM docker.io/library/golang:1.26 AS builder
 
-COPY output/uupd /usr/bin/uupd
-COPY uupd.service uupd-manual.service uupd.timer /usr/lib/systemd/system/
-COPY uupd.rules /usr/share/polkit-1/rules.d/uupd.rules
+WORKDIR /src
+COPY . .
 
-ARG MARKER=0
-RUN if [ "${MARKER}" = "1" ]; then \
-        mkdir -p /usr/share && touch /usr/share/uupd-testing; \
-    fi
+# install-bin/install-units intentionally skip /etc/uupd/config.json so the
+# base image's config is kept.
+RUN make install-bin install-units DESTDIR=/staging
+
+FROM ${BASE_IMAGE} AS base
+
+COPY --from=builder /staging/ /
+
+# bcvk installs the image and drives the tests over SSH.
+RUN systemctl enable sshd.service
 
 LABEL containers.bootc=1
+
+# Separate target for the "upgraded" image. It needs a real content change (not
+# just a label) so bootc stages a deployment with a distinct ostree commit.
+# The test itself verifies the deployment by image digest, not this file.
+FROM base AS upgraded
+RUN mkdir -p /usr/share/uupd-e2e && touch /usr/share/uupd-e2e/upgraded
