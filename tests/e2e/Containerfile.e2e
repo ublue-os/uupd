@@ -9,7 +9,7 @@ COPY . .
 
 # install-bin/install-units intentionally skip /etc/uupd/config.json so the
 # base image's config is kept.
-RUN make install-bin install-units DESTDIR=/staging
+RUN make build && make install-bin install-units DESTDIR=/staging
 
 FROM ${BASE_IMAGE} AS base
 
