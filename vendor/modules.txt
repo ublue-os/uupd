@@ -1,7 +1,7 @@
 # github.com/clipperhouse/uax29/v2 v2.7.0
 ## explicit; go 1.18
 github.com/clipperhouse/uax29/v2/graphemes
-# github.com/ebitengine/purego v0.11.1
+# github.com/ebitengine/purego v0.11.2
 ## explicit; go 1.25.0
 github.com/ebitengine/purego
 github.com/ebitengine/purego/internal/cgo
@@ -48,7 +48,7 @@ github.com/power-devops/perfstat
 ## explicit; go 1.23.0
 github.com/sagikazarmark/locafero
 github.com/sagikazarmark/locafero/internal/queue
-# github.com/shirou/gopsutil/v4 v4.26.9
+# github.com/shirou/gopsutil/v4 v4.26.10
 ## explicit; go 1.26.0
 github.com/shirou/gopsutil/v4/common
 github.com/shirou/gopsutil/v4/internal/common
