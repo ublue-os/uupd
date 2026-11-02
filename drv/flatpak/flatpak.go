@@ -2,6 +2,7 @@ package flatpak
 
 import (
 	"log/slog"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -45,6 +46,14 @@ func (up FlatpakUpdater) New(config UpdaterInitConfiguration) (FlatpakUpdater, e
 	up.usersEnabled = false
 
 	up.binaryPath = conf.BinaryPath
+
+	if !up.Config.DryRun {
+		inf, err := os.Stat(up.binaryPath)
+		if err != nil {
+			return up, err
+		}
+		up.Config.Enabled = inf.Mode()&0111 != 0
+	}
 
 	return up, nil
 }
