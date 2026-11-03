@@ -156,8 +156,6 @@ func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slo
 		if err != nil {
 			continue
 		}
-		logger.Log(context.TODO(), level, "scanned progress", slog.Any("progress_struct", progress))
-
 		stageInfo, exists := PROGRESS_STAGES[progress.Task]
 
 		if !exists {
