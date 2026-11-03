@@ -550,7 +550,7 @@ phase_rollback_verify() {
 	[[ -f /usr/share/uupd-e2e/upgraded ]] || fail "the upgraded payload is missing after rollback"
 	[[ ! -f /usr/share/uupd-e2e/upgraded2 ]] || fail "the upgraded2 payload is still present after rollback"
 	assert_no_staged
-	expect_rc 0 "update-check finds an update again after the rollback" uupd update-check
+	expect_rc 0 "update-check finds the newly built update after the rollback" uupd update-check
 	pass "the previous deployment booted cleanly after rollback"
 }
 

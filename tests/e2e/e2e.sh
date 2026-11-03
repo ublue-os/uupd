@@ -171,10 +171,15 @@ run_extended() {
 	in_vm 'systemctl reboot' || true
 	wait_for_reboot "$old_boot_id" 60 10 "the rollback reboot" ||
 		die "the VM did not reboot after bootc rollback"
-	run_phase phase_rollback_verify
 
+	# Build the next update before verifying the rollback. bootc does not
+	# re-offer an image that is already imported as the rollback deployment,
+	# so the update check after a rollback needs a genuinely new image to see
+	# an update.
 	log "building the third upgrade image and retagging $TEST_IMAGE"
 	build_image upgraded3
+
+	run_phase phase_rollback_verify
 
 	old_boot_id="$(in_vm 'cat /proc/sys/kernel/random/boot_id')"
 	log "staging an update through uupd.service"
