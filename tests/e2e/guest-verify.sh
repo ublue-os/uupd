@@ -338,14 +338,13 @@ EOF
 
 lock_check() {
 	log "checking lockfile contention"
-	flock -x /run/uupd.lock sleep 20 &
-	local holder=$!
-	sleep 1
+	exec {lock_fd}>/run/uupd.lock
+	flock -x "$lock_fd"
 	local rc=0
 	uupd --config /tmp/e2e-config-fake.json --hw-check=false --log-level=debug \
 		--log-file=/tmp/e2e-lock.log --dry-run >/dev/null 2>&1 || rc=$?
-	kill "$holder" 2>/dev/null || true
-	wait "$holder" 2>/dev/null || true
+	flock -u "$lock_fd"
+	exec {lock_fd}>&-
 	[[ "$rc" -ne 0 ]] || fail "uupd did not fail while the lock was held"
 	grep -q "Could not acquire lock" /tmp/e2e-lock.log ||
 		fail "uupd did not report the lock contention"
@@ -355,7 +354,10 @@ lock_check() {
 json_logging_checks() {
 	log "checking JSON logging and log files"
 	uupd --config /tmp/e2e-config-a.json --hw-check=false --dry-run --json \
-		>/tmp/e2e-json.log 2>&1 || fail "uupd --json failed"
+		>/tmp/e2e-json.log 2>&1 || {
+		cat /tmp/e2e-json.log >&2 || true
+		fail "uupd --json failed"
+	}
 	json_lines /tmp/e2e-json.log
 
 	: >/tmp/e2e-logfile.log
