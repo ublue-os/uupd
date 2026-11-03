@@ -52,10 +52,15 @@ func drainLog(logger *slog.Logger, level slog.Level, reader io.Reader, output io
 	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxLogLineSize)
 	for scanner.Scan() {
 		line := scanner.Text()
-		logger.Log(context.TODO(), level, "Command output",
-			slog.String("status", "running"),
-			slog.String("output", line),
-		)
+		if logger != nil {
+			_, ok := logger.Handler().(*slog.JSONHandler)
+			if ok {
+				logger.Log(context.TODO(), level, "Command output",
+					slog.String("status", "running"),
+					slog.String("output", line),
+				)
+			}
+		}
 		_, _ = fmt.Fprintln(output, line)
 	}
 	_, _ = io.Copy(output, reader)
