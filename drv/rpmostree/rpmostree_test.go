@@ -3,6 +3,7 @@ package rpmostree_test
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/ublue-os/uupd/drv/generic"
@@ -190,14 +191,23 @@ func TestCheckIndexDigestMatchesPlatformManifest(t *testing.T) {
     ]
 }`
 	inspectOutput := `{"Digest": "sha256:71df44e56aaea670bd3c0e2820190d6b2b49578d6b18e11be5049ca751686997"}`
-	rawIndex := `{
+
+	installedDigest := "sha256:cf32381a509dcd446fadcbe5c0558c3021b8b90879ae0d02b22b5d0e5c2c587e"
+	amd64Digest := installedDigest
+	arm64Digest := "sha256:arm64digest"
+	if runtime.GOARCH == "arm64" {
+		arm64Digest = installedDigest
+		amd64Digest = "sha256:amd64digest"
+	}
+
+	rawIndex := fmt.Sprintf(`{
     "mediaType": "application/vnd.oci.image.index.v1+json",
     "manifests": [
-        {"digest": "sha256:cf32381a509dcd446fadcbe5c0558c3021b8b90879ae0d02b22b5d0e5c2c587e", "platform": {"os": "linux", "architecture": "amd64"}},
-        {"digest": "sha256:arm64digest", "platform": {"os": "linux", "architecture": "arm64"}},
+        {"digest": "%s", "platform": {"os": "linux", "architecture": "amd64"}},
+        {"digest": "%s", "platform": {"os": "linux", "architecture": "arm64"}},
         {"digest": "sha256:attestation", "platform": {"os": "unknown", "architecture": "unknown"}}
     ]
-}`
+}`, amd64Digest, arm64Digest)
 	rpmOstreeBin, skopeoBin := writeFakeRpmOstreeForSkopeo(t, 77, statusJSON, inspectOutput, rawIndex, 0)
 	updater := InitBaseConfig()
 	updater.Config.DryRun = false
