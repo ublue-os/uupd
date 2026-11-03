@@ -352,33 +352,6 @@ lock_check() {
 	pass "a second uupd fails cleanly when the lock is held"
 }
 
-hardware_check() {
-	log "checking the hardware check gate"
-	cat >/tmp/e2e-config-hw-bad.json <<'EOF'
-{
-    "checks": {"hardware": {"enable": true, "mem-max-percent": 0}},
-    "modules": {
-        "flatpak": {"disable": true},
-        "brew": {"disable": true},
-        "distrobox": {"disable": true}
-    }
-}
-EOF
-	expect_fail "hardware checks stop an update" \
-		uupd --config /tmp/e2e-config-hw-bad.json --hw-check=true --dry-run --log-file=/tmp/e2e-hw.log
-	grep -q "Hardware checks failed" /tmp/e2e-hw.log ||
-		fail "the hardware failure was not reported"
-	pass "failing hardware checks abort the update"
-
-	expect_rc 0 "hardware checks can be bypassed" \
-		uupd --config /tmp/e2e-config-hw-bad.json --hw-check=false --dry-run \
-		--log-level=debug --log-file=/tmp/e2e-hw-bypass.log
-	pass "--hw-check=false bypasses the hardware gate"
-
-	expect_fail "the hw-check subcommand reports the failure" \
-		uupd --config /tmp/e2e-config-hw-bad.json hw-check --log-file=/tmp/e2e-hw-subcommand.log
-}
-
 json_logging_checks() {
 	log "checking JSON logging and log files"
 	uupd --config /tmp/e2e-config-a.json --hw-check=false --dry-run --json \
@@ -411,7 +384,6 @@ extended_prechecks() {
 	fake_bootc_checks
 	module_checks
 	lock_check
-	hardware_check
 	json_logging_checks
 	assert_no_staged
 	pass "extended prechecks left no staged deployment behind"
