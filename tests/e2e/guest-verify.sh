@@ -365,7 +365,7 @@ hardware_check() {
 }
 EOF
 	expect_fail "hardware checks stop an update" \
-		uupd --config /tmp/e2e-config-hw-bad.json --dry-run --log-file=/tmp/e2e-hw.log
+		uupd --config /tmp/e2e-config-hw-bad.json --hw-check=true --dry-run --log-file=/tmp/e2e-hw.log
 	grep -q "Hardware checks failed" /tmp/e2e-hw.log ||
 		fail "the hardware failure was not reported"
 	pass "failing hardware checks abort the update"
