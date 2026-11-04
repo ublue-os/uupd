@@ -17,7 +17,7 @@ jobs:
   push-ghcr:
     if: false # we can fix this action later, likely using something like test.thing or so
     name: Build and test image
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       packages: write
