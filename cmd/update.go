@@ -108,7 +108,7 @@ func Update(cmd *cobra.Command, args []string) error {
 
 	lockfile, err := filelock.OpenLockfile(filelock.GetDefaultLockfile())
 	if err != nil {
-		slog.Error("Failed creating and opening lockfile. Is uupd already running?", slog.Any("error", err))
+		slog.Error("Failed creating and opening lockfile", slog.Any("error", err))
 		return err
 	}
 	defer func(lockfile *os.File) {
@@ -119,8 +119,8 @@ func Update(cmd *cobra.Command, args []string) error {
 	}(lockfile)
 
 	if err := filelock.AcquireLock(lockfile, filelock.TimeoutConfig{Tries: 5}); err != nil {
-		slog.Error(fmt.Sprintf("%v, is uupd already running?", err))
-		return err
+		slog.Info("An update is already in progress. Please wait for it to complete.")
+		return nil
 	}
 
 	hwCheck := conf.Checks.Hardware.Enable
