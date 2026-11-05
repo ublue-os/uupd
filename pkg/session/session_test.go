@@ -59,7 +59,7 @@ func TestUserParsingValidUser(t *testing.T) {
 		NameVariant dbus.Variant
 	}{
 		{dbus.MakeVariant(uint32(10)), dbus.MakeVariant("bob")},
-		{dbus.MakeVariant(uint32(20)), dbus.MakeVariant("beatryz")},
+		{dbus.MakeVariant(uint32(20)), dbus.MakeVariant("glorp")},
 		{dbus.MakeVariant(uint32(math.MaxUint16)), dbus.MakeVariant("zorg_the_destroyer")},
 	}
 
