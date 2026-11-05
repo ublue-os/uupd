@@ -1,5 +1,5 @@
 ARG TEST_IMAGE="${TEST_IMAGE:-ghcr.io/ublue-os/base-main:41}"
-ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-41}"
+ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-45}"
 
 FROM registry.fedoraproject.org/fedora:${FEDORA_MAJOR_VERSION} AS builder
 
