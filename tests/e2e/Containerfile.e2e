@@ -16,6 +16,7 @@ FROM ${BASE_IMAGE} AS base
 COPY --from=builder /staging/ /
 
 # bcvk installs the image and drives the tests over SSH.
+# https://github.com/bootc-dev/bcvk/issues/236
 RUN systemctl enable sshd.service
 
 # Separate target for the "upgraded" image. It needs a real content change (not
