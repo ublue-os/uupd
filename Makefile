@@ -81,6 +81,7 @@ uninstall: ## Remove installed files (preserves config in /etc)
 	rm -f $(DESTDIR)$(UNITDIR)/$(BINARY)-manual.service
 	rm -f $(DESTDIR)$(UNITDIR)/$(BINARY).timer
 	rm -f $(DESTDIR)$(POLKITRULESDIR)/$(BINARY).rules
+	rm -f $(DESTDIR)$(LIBDIR)/$(BINARY)/config.json
 	@if [ -e "$(DESTDIR)$(SYSCONFDIR)/$(BINARY)/config.json" ]; then \
 		echo "Preserved $(DESTDIR)$(SYSCONFDIR)/$(BINARY)/config.json"; \
 	fi

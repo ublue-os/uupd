@@ -47,7 +47,7 @@ uupd --help
 
 # Configuration
 
-Automatic updates are ran from the systemd service to edit basic options, you can edit `/etc/uupd/config.json`
+The default configuration is installed at `/usr/lib/uupd/config.json`. To override it, create `/etc/uupd/config.json`; when present, that file takes precedence over the one in `/usr` and is preserved across upgrades.
 ```json
 {
     "checks": {
@@ -141,9 +141,9 @@ Files are installed under `/usr` by default, matching the paths used by the ship
 | `uupd` | `/usr/bin/uupd` |
 | `uupd.service`, `uupd-manual.service`, `uupd.timer` | `/usr/lib/systemd/system/` |
 | `uupd.rules` | `/usr/share/polkit-1/rules.d/` |
-| `config.json` | `/etc/uupd/config.json` |
+| `config.json` | `/usr/lib/uupd/config.json` |
 
-An existing `/etc/uupd/config.json` is never overwritten. Use `make install-bin` to install only the binary.
+An existing `/usr/lib/uupd/config.json` is never overwritten. Put local overrides in `/etc/uupd/config.json`, which takes precedence over the default config. Use `make install-bin` to install only the binary.
 
 `PREFIX` and `DESTDIR` are supported for staged or custom installs:
 
@@ -155,7 +155,7 @@ make install PREFIX=/usr/local
 > **Note**
 > The supplied systemd units call `/usr/bin/uupd`, so a non-default `PREFIX` also requires adjusting the units.
 
-`sudo make uninstall` removes the installed files but preserves the config in `/etc/uupd`.
+`sudo make uninstall` removes the installed files but preserves the user override in `/etc/uupd`.
 
 ## Development System Installation
 
