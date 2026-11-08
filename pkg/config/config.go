@@ -128,7 +128,8 @@ func InitConfig(p string) error {
 		return nil
 	}
 
-	// Default path: check /etc first, then /usr
+	// Default path: check /etc first, then /usr. A missing config file is
+	// not an error; built-in defaults and environment variables are used.
 	paths := []string{DEFAULT_PATH, USR_PATH}
 	configFile := ""
 
@@ -139,11 +140,14 @@ func InitConfig(p string) error {
 		}
 	}
 
-	viper.SetConfigFile(configFile)
 	defaults()
 
-	if err := viper.ReadInConfig(); err != nil {
-		return fmt.Errorf("failed to read config: %w", err)
+	if configFile != "" {
+		viper.SetConfigFile(configFile)
+
+		if err := viper.ReadInConfig(); err != nil {
+			return fmt.Errorf("failed to read config: %w", err)
+		}
 	}
 
 	if err := viper.UnmarshalExact(&conf); err != nil {
