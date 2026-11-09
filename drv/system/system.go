@@ -145,10 +145,14 @@ func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slo
 	outputLevel := appLogging.CommandOutputLevel(logger, level)
 	for scanner.Scan() {
 
-		logger.Log(context.TODO(), outputLevel, "Command output",
-			slog.String("status", "running"),
-			slog.String("output", scanner.Text()),
-		)
+		if logger != nil {
+			if _, ok := logger.Handler().(*slog.JSONHandler); ok {
+				logger.Log(context.TODO(), outputLevel, "Command output",
+					slog.String("status", "running"),
+					slog.String("output", scanner.Text()),
+				)
+			}
+		}
 		var progress BootcProgress
 
 		err := json.Unmarshal(scanner.Bytes(), &progress)
