@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/godbus/dbus/v5 v5.2.4
-	github.com/jedib0t/go-pretty/v6 v6.8.3
+	github.com/jedib0t/go-pretty/v6 v6.9.0
 	github.com/shirou/gopsutil/v4 v4.26.10
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
@@ -23,6 +23,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/pelletier/go-toml/v2 v2.3.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260805114148-88456608a4f6 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
