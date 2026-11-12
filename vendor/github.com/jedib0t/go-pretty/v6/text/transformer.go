@@ -54,7 +54,7 @@ func NewNumberTransformer(format string) Transformer {
 
 	transformInt64 := func(val int64) string {
 		if val < 0 {
-			return colorsNumberNegative.Sprintf(negFormat, -val)
+			return colorsNumberNegative.Sprintf(negFormat, -uint64(val))
 		}
 		if val > 0 {
 			return colorsNumberPositive.Sprintf(format, val)
@@ -204,13 +204,15 @@ func formatTime(t time.Time, layout string, location *time.Location) string {
 }
 
 func formatTimeUnix(unixTime int64, timeTransformer Transformer) string {
-	// Use pre-computed constants instead of repeated time.Second.Nanoseconds() calls
+	unitsPerSecond := int64(1)
 	if unixTime >= unixTimeMinNanoSeconds {
-		unixTime = unixTime / nanosPerSecond
+		unitsPerSecond = nanosPerSecond
 	} else if unixTime >= unixTimeMinMicroseconds {
-		unixTime = unixTime / microsPerSecond
+		unitsPerSecond = microsPerSecond
 	} else if unixTime >= unixTimeMinMilliseconds {
-		unixTime = unixTime / millisPerSecond
+		unitsPerSecond = millisPerSecond
 	}
-	return timeTransformer(time.Unix(unixTime, 0))
+	seconds := unixTime / unitsPerSecond
+	nanoseconds := (unixTime % unitsPerSecond) * (nanosPerSecond / unitsPerSecond)
+	return timeTransformer(time.Unix(seconds, nanoseconds))
 }

@@ -13,6 +13,9 @@ func WrapHard(str string, wrapLen int) string {
 	if wrapLen <= 0 {
 		return ""
 	}
+	if strings.Contains(str, escapeStartConcealOSI) {
+		return wrapHyperlinks(str, wrapLen, false, false)
+	}
 	str = strings.ReplaceAll(str, "\t", "    ")
 	sLen := StringWidthWithoutEscSequences(str)
 	if sLen <= wrapLen {
@@ -41,6 +44,9 @@ func WrapSoft(str string, wrapLen int) string {
 	if wrapLen <= 0 {
 		return ""
 	}
+	if strings.Contains(str, escapeStartConcealOSI) {
+		return wrapHyperlinks(str, wrapLen, true, false)
+	}
 	str = strings.ReplaceAll(str, "\t", "    ")
 	sLen := StringWidthWithoutEscSequences(str)
 	if sLen <= wrapLen {
@@ -68,6 +74,9 @@ func WrapText(str string, wrapLen int) string {
 	if wrapLen <= 0 {
 		return ""
 	}
+	if strings.Contains(str, escapeStartConcealOSI) {
+		return wrapHyperlinks(str, wrapLen, false, true)
+	}
 	str = strings.ReplaceAll(str, "\t", "    ")
 	sLen := StringWidthWithoutEscSequences(str)
 	if sLen <= wrapLen {
@@ -87,9 +96,16 @@ func WrapText(str string, wrapLen int) string {
 }
 
 func appendChar(char rune, wrapLen int, lineLen *int, inEscSeq bool, lastSeenEscSeq string, out *strings.Builder) {
+	charWidth := 0
+	if !inEscSeq && char != '\n' {
+		charWidth = RuneWidth(char)
+	}
+
 	// handle reaching the end of the line as dictated by wrapLen or by finding
-	// a newline character
-	if (*lineLen >= wrapLen && !inEscSeq && char != '\n') || (char == '\n') {
+	// a newline character; a wide rune that would overflow the line is moved
+	// to the next line, unless the line is empty (it can never fit, so it is
+	// placed on a line of its own)
+	if (*lineLen > 0 && *lineLen+charWidth > wrapLen && !inEscSeq && char != '\n') || (char == '\n') {
 		if lastSeenEscSeq != "" {
 			// terminate escape sequence and the line; and restart the escape
 			// sequence in the next line
@@ -109,9 +125,7 @@ func appendChar(char rune, wrapLen int, lineLen *int, inEscSeq bool, lastSeenEsc
 		out.WriteRune(char)
 
 		// increment the line index if not in the middle of an escape sequence
-		if !inEscSeq {
-			*lineLen += RuneWidth(char)
-		}
+		*lineLen += charWidth
 	}
 }
 
@@ -178,7 +192,7 @@ func wrapHard(paragraph string, wrapLen int, out *strings.Builder) {
 		}
 
 		// end of line; but more words incoming
-		if lineLen == wrapLen && wordIdx < len(words)-1 {
+		if lineLen >= wrapLen && wordIdx < len(words)-1 {
 			terminateLine(wrapLen, &lineLen, lastSeenEscSeq, out)
 		}
 	}
@@ -205,7 +219,7 @@ func wrapSoft(paragraph string, wrapLen int, out *strings.Builder) {
 		}
 
 		// end of line; but more words incoming
-		if lineLen == wrapLen && wordIdx < len(words)-1 {
+		if lineLen >= wrapLen && wordIdx < len(words)-1 {
 			terminateLine(wrapLen, &lineLen, lastSeenEscSeq, out)
 		}
 	}
