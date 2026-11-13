@@ -1,4 +1,4 @@
-ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-41}"
+ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-45}"
 
 FROM registry.fedoraproject.org/fedora:${FEDORA_MAJOR_VERSION} AS builder
 
@@ -8,9 +8,12 @@ WORKDIR /app
 
 ADD . /app
 
-RUN dnf install -y just git
+RUN --mount=type=cache,dst=/var/cache/libdnf5 \
+  dnf config-manager setopt keepcache=1 && \
+  dnf install -y just git
 
-RUN just container-rpm-build
+RUN --mount=type=cache,dst=/var/cache/libdnf5 \
+  just container-rpm-build
 
 FROM scratch
 

@@ -36,6 +36,7 @@ builddep:
 container-install-deps:
 	#!/usr/bin/env bash
 	set -eou pipefail
+	dnf config-manager setopt keepcache=1 && \
 	dnf install                       \
 		--disablerepo='*'             \
 		--enablerepo='fedora,updates' \
