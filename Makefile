@@ -39,7 +39,8 @@ SYSCONFDIR ?= /etc
 DESTDIR ?=
 
 .PHONY: all build install install-bin install-units install-config uninstall \
-	test test-cover vet check lint fmt fmt-check tidy vendor clean help
+	test test-cover e2e e2e-extended e2e-list e2e-image vet check lint fmt fmt-check tidy \
+	vendor clean help
 
 all: build
 
@@ -94,6 +95,25 @@ test: ## Run the unit tests
 test-cover: | $(OUTPUT_DIR) ## Run tests and write output/coverage.out
 	$(GO) test -coverprofile=$(OUTPUT_DIR)/coverage.out $(GO_PACKAGES)
 	$(GO) tool cover -func=$(OUTPUT_DIR)/coverage.out
+
+IMAGE ?=
+e2e: ## Run e2e tests for every supported image (rootless podman + libvirt)
+	./tests/e2e/e2e.sh --all
+
+E2E_EXTENDED_IMAGE ?= bluefin
+e2e-extended: ## Run the extended e2e scenario: make e2e-extended E2E_EXTENDED_IMAGE=bluefin
+	E2E_SCENARIO=extended ./tests/e2e/e2e.sh "$(E2E_EXTENDED_IMAGE)"
+
+e2e-list: ## List e2e images
+	./tests/e2e/e2e.sh --list
+
+e2e-image: ## Run e2e for one image: make e2e-image IMAGE=bluefin
+	@if [ -z "$(IMAGE)" ]; then \
+		echo "Usage: make e2e-image IMAGE=<name>"; \
+		./tests/e2e/e2e.sh --list; \
+		exit 1; \
+	fi
+	./tests/e2e/e2e.sh "$(IMAGE)"
 
 vet: ## Run go vet
 	$(GO) vet $(GO_VET_FLAGS) $(GO_PACKAGES)

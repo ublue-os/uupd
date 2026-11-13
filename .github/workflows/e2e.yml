@@ -1,0 +1,167 @@
+name: e2e testing
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  merge_group:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E ${{ matrix.scenario }} on ${{ matrix.image.name }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    env:
+      # bcvk is designed to run rootless. The host setup steps below export
+      # this as well, but set it explicitly so every step uses the per-user
+      # libvirt session daemon that owns the rootless podman storage.
+      LIBVIRT_DEFAULT_URI: qemu:///session
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image:
+              name: bluefin
+            scenario: core
+          - image:
+              name: aurora
+            scenario: core
+          - image:
+              name: bazzite
+            scenario: core
+          - image:
+              name: quay.io/fedora/fedora-bootc:rawhide
+            scenario: core
+          # The extended scenarios are image-independent (they use fake
+          # module binaries), so run them once on the minimal bootc image.
+          - image:
+              name: quay.io/fedora/fedora-bootc:rawhide
+            scenario: extended
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Free up disk space
+        uses: HastD/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v0.1.2
+        with:
+          swapoff: true
+
+      - name: Install host dependencies
+        env:
+          BOOTC_HOST_LIBVIRT: 'true'
+        run: |
+          set -euo pipefail
+          libvirt=${BOOTC_HOST_LIBVIRT:-false}
+          . /etc/os-release
+          case "${ID}:${VERSION_ID}" in
+            ubuntu:26.04) ;;
+            *) printf 'Unsupported host: ID=%s VERSION_ID=%s\n' "$ID" "$VERSION_ID" >&2; exit 1 ;;
+          esac
+          sudo df -h
+          sudo systemd-run -r -u "action-cleanup-0" -- docker image prune --all --force
+          n=1
+          for dir in /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL; do
+            sudo systemd-run -r -u "action-cleanup-${n}" -- rm -rf "$dir"
+            n=$((n + 1))
+          done
+          sudo apt-get update
+          sudo apt-get install -y just
+          if [ "$libvirt" = true ]; then
+            sudo apt-get install -y libkrb5-dev pkg-config libvirt-dev genisoimage qemu-utils virtiofsd libvirt-daemon-system python3-virt-firmware ovmf-generic ovmf-amdsev-
+          fi
+          printf 'LIBVIRT_DEFAULT_URI=qemu:///session\n' >> "$GITHUB_ENV"
+
+      - name: Apply host workarounds
+        env:
+          BOOTC_HOST_LIBVIRT: 'true'
+        run: |
+          set -euo pipefail
+          libvirt=${BOOTC_HOST_LIBVIRT:-false}
+          . /etc/os-release
+          if [ "$libvirt" = true ] && [ -c /dev/kvm ]; then
+            printf '%s\n' 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+            sudo udevadm control --reload-rules
+            sudo udevadm trigger --name-match=kvm
+          fi
+          if sudo test -r /etc/apparmor.d/bwrap-userns-restrict && sudo test -r /sys/kernel/security/apparmor/profiles && sudo grep -qx 'bwrap (enforce)' /sys/kernel/security/apparmor/profiles; then
+            printf '%s\n' 'profile bwrap-userns-restrict {' '  priority=100 allow file rwlkm /**,' '  priority=100 allow ix /**,' '}' | sudo tee /etc/apparmor.d/local/bwrap-userns-restrict >/dev/null
+            sudo apparmor_parser -Q /etc/apparmor.d/local/bwrap-userns-restrict
+            sudo apparmor_parser -r /etc/apparmor.d/local/bwrap-userns-restrict
+          fi
+
+      - name: Test host environment
+        env:
+          BOOTC_HOST_LIBVIRT: 'true'
+        run: |
+          set -euo pipefail
+          libvirt=${BOOTC_HOST_LIBVIRT:-false}
+          . /etc/os-release
+          case "$ID" in ubuntu|rhel) ;; *) exit 1 ;; esac
+          podman --version
+          just --version
+          test -n "${GITHUB_ENV:-}"
+          if [ "$libvirt" = true ]; then
+            test -x "$(command -v virsh)"
+            test -x "$(command -v virt-fw-vars)"
+            virtiofsd=$(command -v virtiofsd || true)
+            test -x "${virtiofsd:-/usr/lib/qemu/virtiofsd}"
+          fi
+
+      - name: Install bcvk (>= 0.22 required for --update-from-host)
+        run: |
+          # renovate: datasource=github-releases depName=bootc-dev/bcvk
+          retry() {
+            if [[ "${#}" -lt 3 ]]; then
+              echo "retry usage: <number of tries> <time between retries> <command> ..."
+              return 1
+            fi
+            local tries="${1}" delay="${2}" r=0 i
+            shift 2
+            for ((i = 1; i <= tries; i++)); do
+              if [[ ${i} -gt 1 ]]; then
+                sleep "${delay}"
+              fi
+              if "${@}"; then
+                r=0
+                break
+              else
+                r=$?
+              fi
+            done
+            return "$r"
+          }
+          BCVK_VERSION="0.22.0"
+          case "$(arch)" in
+            x86_64) BCVK_TARGET="x86_64-unknown-linux-gnu" ;;
+            aarch64) BCVK_TARGET="aarch64-unknown-linux-gnu" ;;
+            *) echo "Unsupported architecture: $(arch)" >&2; exit 1 ;;
+          esac
+          BCVK_TARBALL="bcvk-${BCVK_TARGET}.tar.gz"
+          BCVK_URL="https://github.com/bootc-dev/bcvk/releases/download/v${BCVK_VERSION}"
+          retry 5 60 curl --proto '=https' --tlsv1.2 -fsSL -o "$BCVK_TARBALL" "${BCVK_URL}/${BCVK_TARBALL}"
+          retry 5 60 curl --proto '=https' --tlsv1.2 -fsSL -o "${BCVK_TARBALL}.sha256" "${BCVK_URL}/${BCVK_TARBALL}.sha256"
+          sha256sum -c "${BCVK_TARBALL}.sha256"
+          tar -xzf "$BCVK_TARBALL"
+          sudo install -m 0755 "bcvk-${BCVK_TARGET}" /usr/local/bin/bcvk
+          bcvk --version
+
+      - name: Run e2e test
+        env:
+          E2E_SCENARIO: ${{ matrix.scenario }}
+        run: ./tests/e2e/e2e.sh '${{ matrix.image.name }}'
