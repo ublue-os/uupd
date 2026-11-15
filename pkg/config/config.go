@@ -47,6 +47,7 @@ type Config struct {
 }
 
 const DEFAULT_PATH string = "/etc/uupd/config.json"
+const USR_PATH string = "/usr/lib/uupd/config.json"
 
 var conf Config
 
@@ -106,15 +107,47 @@ func defaults() {
 
 func InitConfig(p string) error {
 
-	viper.SetConfigFile(p)
-	defaults()
+	// If user explicitly provided a config path (not the default), use it first
+	// Otherwise fall back to /etc -> /usr -> default
+	if p != DEFAULT_PATH {
+		// Explicit path provided - check if it exists
+		if _, err := os.Stat(p); err != nil {
+			return fmt.Errorf("Bad config file path: %s", p)
+		}
+		viper.SetConfigFile(p)
+		defaults()
 
-	if _, err := os.Stat(p); err == nil {
 		if err := viper.ReadInConfig(); err != nil {
 			return fmt.Errorf("failed to read config: %w", err)
 		}
-	} else if p != DEFAULT_PATH {
-		return fmt.Errorf("Bad config file path: %s", p)
+
+		if err := viper.UnmarshalExact(&conf); err != nil {
+			return fmt.Errorf("Failed to unmarshal config: %v", err)
+		}
+
+		return nil
+	}
+
+	// Default path: check /etc first, then /usr. A missing config file is
+	// not an error; built-in defaults and environment variables are used.
+	paths := []string{DEFAULT_PATH, USR_PATH}
+	configFile := ""
+
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			configFile = path
+			break
+		}
+	}
+
+	defaults()
+
+	if configFile != "" {
+		viper.SetConfigFile(configFile)
+
+		if err := viper.ReadInConfig(); err != nil {
+			return fmt.Errorf("failed to read config: %w", err)
+		}
 	}
 
 	if err := viper.UnmarshalExact(&conf); err != nil {

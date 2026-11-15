@@ -33,6 +33,7 @@ GO_PACKAGES := ./...
 # units invoke /usr/bin/uupd.
 PREFIX ?= /usr
 BINDIR ?= $(PREFIX)/bin
+LIBDIR ?= $(PREFIX)/lib
 UNITDIR ?= $(PREFIX)/lib/systemd/system
 POLKITRULESDIR ?= $(PREFIX)/share/polkit-1/rules.d
 SYSCONFDIR ?= /etc
@@ -68,10 +69,10 @@ install-units: ## Install the systemd units and polkit rule
 	install -Dpm 0644 $(BINARY).rules $(DESTDIR)$(POLKITRULESDIR)/$(BINARY).rules
 
 install-config: ## Install the default config, preserving an existing one
-	@if [ -e "$(DESTDIR)$(SYSCONFDIR)/$(BINARY)/config.json" ]; then \
-		echo "Keeping existing $(DESTDIR)$(SYSCONFDIR)/$(BINARY)/config.json"; \
+	@if [ -e "$(DESTDIR)$(LIBDIR)/$(BINARY)/config.json" ]; then \
+		echo "Keeping existing $(DESTDIR)$(LIBDIR)/$(BINARY)/config.json"; \
 	else \
-		install -Dpm 0644 config.json "$(DESTDIR)$(SYSCONFDIR)/$(BINARY)/config.json"; \
+		install -Dpm 0644 config.json "$(DESTDIR)$(LIBDIR)/$(BINARY)/config.json"; \
 	fi
 
 uninstall: ## Remove installed files (preserves config in /etc)
@@ -80,6 +81,7 @@ uninstall: ## Remove installed files (preserves config in /etc)
 	rm -f $(DESTDIR)$(UNITDIR)/$(BINARY)-manual.service
 	rm -f $(DESTDIR)$(UNITDIR)/$(BINARY).timer
 	rm -f $(DESTDIR)$(POLKITRULESDIR)/$(BINARY).rules
+	rm -f $(DESTDIR)$(LIBDIR)/$(BINARY)/config.json
 	@if [ -e "$(DESTDIR)$(SYSCONFDIR)/$(BINARY)/config.json" ]; then \
 		echo "Preserved $(DESTDIR)$(SYSCONFDIR)/$(BINARY)/config.json"; \
 	fi
