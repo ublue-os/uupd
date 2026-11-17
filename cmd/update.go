@@ -67,6 +67,14 @@ func runModule(
 	return err
 }
 
+func manualUpdates(outputs []drv.CommandOutput) []string {
+	var packages []string
+	for _, output := range outputs {
+		packages = append(packages, output.NeedsManualUpdate...)
+	}
+	return packages
+}
+
 func logModuleFailure(output drv.CommandOutput) {
 	slog.Error("module_fail",
 		slog.String("module", output.Module),
@@ -298,6 +306,12 @@ func Update(cmd *cobra.Command, args []string) error {
 				slog.String("cli", strings.Join(output.Cli, " ")),
 			)
 		}
+	}
+
+	if manual := manualUpdates(outputs); len(manual) > 0 {
+		message := fmt.Sprintf("Casks need sudo and were skipped. Run in a terminal: brew upgrade --cask %s", strings.Join(manual, " "))
+		slog.Warn("Some updates need manual action", slog.Any("packages", manual), slog.String("hint", message))
+		_ = session.Notify(users, "Some Updates Need Manual Action", message, "normal")
 	}
 
 	var failures = []drv.CommandOutput{}

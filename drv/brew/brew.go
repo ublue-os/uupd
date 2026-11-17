@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -13,6 +14,73 @@ import (
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
+
+var sudoSkipPattern = regexp.MustCompile(`^Error: (\S+): The \S+ artifact requires sudo, but HOMEBREW_NO_SUDO is set\.$`)
+
+const sudoDisabledMessage = "sudo is disabled by HOMEBREW_NO_SUDO"
+
+// sudoSkippedCasks finds casks refused because sudo is disabled: install
+// artifacts are skipped, uninstall artifacts report sudoDisabledMessage.
+func sudoSkippedCasks(output string) (casks []string, onlySudo bool) {
+	type errorBlock struct {
+		cask string
+		sudo bool
+	}
+
+	blocks := []errorBlock{}
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Error:") {
+			block := errorBlock{}
+			body := strings.TrimSpace(strings.TrimPrefix(line, "Error:"))
+			if match := sudoSkipPattern.FindStringSubmatch(line); match != nil {
+				block.cask, block.sudo = match[1], true
+			} else if name, _, found := strings.Cut(body, ":"); found {
+				block.cask = strings.TrimSpace(name)
+			}
+			if strings.Contains(line, sudoDisabledMessage) {
+				block.sudo = true
+			}
+			blocks = append(blocks, block)
+			continue
+		}
+		if len(blocks) > 0 && strings.Contains(line, sudoDisabledMessage) {
+			blocks[len(blocks)-1].sudo = true
+		}
+	}
+
+	onlySudo = len(blocks) > 0
+	seen := make(map[string]bool, len(blocks))
+	for _, block := range blocks {
+		if block.cask == "" || !block.sudo {
+			onlySudo = false
+			continue
+		}
+		if !seen[block.cask] {
+			seen[block.cask] = true
+			casks = append(casks, block.cask)
+		}
+	}
+	return casks, onlySudo && len(casks) > 0
+}
+
+// markSudoSkips records sudo-skipped casks and reports if they are the only errors.
+func markSudoSkips(output *CommandOutput) bool {
+	if output.ExitCode != 1 {
+		return false
+	}
+	casks, onlySudo := sudoSkippedCasks(output.Stdout)
+	if len(casks) == 0 {
+		return false
+	}
+	output.NeedsManualUpdate = casks
+	if !onlySudo {
+		return false
+	}
+	output.Failure = false
+	output.ExitCode = 0
+	return true
+}
 
 func (up BrewUpdater) GetBrewUID() (int, error) {
 	inf, err := os.Stat(up.BrewPrefix)
@@ -61,12 +129,26 @@ func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, e
 		return &final_output, err
 	}
 
+	// No TTY for sudo prompts, so make brew skip sudo casks early.
 	cli = []string{up.BrewPath, "upgrade", "-y"}
-	out, err = session.RunAsUser(up.Config.Logger, slog.LevelDebug, up.BaseUserName, cli)
+	out, err = session.RunAsUserWithEnv(up.Config.Logger, slog.LevelDebug, up.BaseUserName, []string{"HOMEBREW_NO_SUDO=1"}, cli)
 	tmpout = CommandOutput{}.New(out, err)
 	tmpout.Context = "Brew Upgrade"
 	tmpout.Cli = cli
 	tmpout.Failure = err != nil
+	if err != nil {
+		onlySudo := markSudoSkips(tmpout)
+		if len(tmpout.NeedsManualUpdate) > 0 {
+			// Bazzite Updater shows only the message text, not attributes.
+			up.Config.Logger.Warn(
+				fmt.Sprintf("Some casks need sudo and were skipped; upgrade them in a terminal: brew upgrade --cask %s", strings.Join(tmpout.NeedsManualUpdate, " ")),
+				slog.Any("casks", tmpout.NeedsManualUpdate),
+			)
+		}
+		if onlySudo {
+			err = nil
+		}
+	}
 	final_output = append(final_output, *tmpout)
 	return &final_output, err
 }

@@ -265,3 +265,42 @@ func TestWrapperArgsPreserveTheProgramPathAsArgZero(t *testing.T) {
 		t.Fatalf("Expected arguments to be passed through untouched, got %v", lines[1:])
 	}
 }
+
+func TestEnvWrapperArgsSetEnvAndPreserveArgZero(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	scriptPath := filepath.Join(dir, "brew")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$0\" \"$HOMEBREW_NO_SUDO\"\nprintf '%s\\n' \"$@\"\n"
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("Failed writing test script: %v", err)
+	}
+
+	linkPath := filepath.Join(dir, "bin", "brew")
+	if err := os.MkdirAll(filepath.Dir(linkPath), 0o755); err != nil {
+		t.Fatalf("Failed creating symlink directory: %v", err)
+	}
+	if err := os.Symlink(scriptPath, linkPath); err != nil {
+		t.Fatalf("Failed creating symlink: %v", err)
+	}
+
+	args := envWrapperArgs([]string{"HOMEBREW_NO_SUDO=1"}, []string{linkPath, "upgrade", "-y"})
+	command := exec.Command(args[0], args[1:]...)
+	command.Env = []string{}
+
+	out, err := runLogWithDeadline(t, command, 30*time.Second)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v (output: %q)", err, out)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	expected := []string{linkPath, "1", "upgrade", "-y"}
+	if len(lines) != len(expected) {
+		t.Fatalf("Expected %v, got %q", expected, out)
+	}
+	for i := range expected {
+		if lines[i] != expected[i] {
+			t.Fatalf("Expected %v, got %v", expected, lines)
+		}
+	}
+}

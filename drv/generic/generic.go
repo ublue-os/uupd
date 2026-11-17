@@ -46,6 +46,8 @@ type CommandOutput struct {
 	Cli      []string `json:"cli"`
 	Module   string   `json:"module"`
 	ExitCode int      `json:"exit_code"`
+	// Skipped packages that need sudo; not counted as failures.
+	NeedsManualUpdate []string `json:"needs_manual_update,omitempty"`
 }
 
 func (output CommandOutput) New(out []byte, err error) *CommandOutput {
