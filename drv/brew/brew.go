@@ -64,18 +64,21 @@ func sudoSkippedCasks(output string) (casks []string, onlySudo bool) {
 	return casks, onlySudo && len(casks) > 0
 }
 
-// markSudoSkips converts brew's normal failure exit (1) to a manual-action success.
+// markSudoSkips records sudo-skipped casks and reports if they are the only errors.
 func markSudoSkips(output *CommandOutput) bool {
 	if output.ExitCode != 1 {
 		return false
 	}
 	casks, onlySudo := sudoSkippedCasks(output.Stdout)
+	if len(casks) == 0 {
+		return false
+	}
+	output.NeedsManualUpdate = casks
 	if !onlySudo {
 		return false
 	}
 	output.Failure = false
 	output.ExitCode = 0
-	output.NeedsManualUpdate = casks
 	return true
 }
 
@@ -133,13 +136,18 @@ func (up BrewUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, e
 	tmpout.Context = "Brew Upgrade"
 	tmpout.Cli = cli
 	tmpout.Failure = err != nil
-	if err != nil && markSudoSkips(tmpout) {
-		// Bazzite Updater shows only the message text, not attributes.
-		up.Config.Logger.Warn(
-			fmt.Sprintf("Some casks need sudo and were skipped; upgrade them in a terminal: brew upgrade --cask %s", strings.Join(tmpout.NeedsManualUpdate, " ")),
-			slog.Any("casks", tmpout.NeedsManualUpdate),
-		)
-		err = nil
+	if err != nil {
+		onlySudo := markSudoSkips(tmpout)
+		if len(tmpout.NeedsManualUpdate) > 0 {
+			// Bazzite Updater shows only the message text, not attributes.
+			up.Config.Logger.Warn(
+				fmt.Sprintf("Some casks need sudo and were skipped; upgrade them in a terminal: brew upgrade --cask %s", strings.Join(tmpout.NeedsManualUpdate, " ")),
+				slog.Any("casks", tmpout.NeedsManualUpdate),
+			)
+		}
+		if onlySudo {
+			err = nil
+		}
 	}
 	final_output = append(final_output, *tmpout)
 	return &final_output, err

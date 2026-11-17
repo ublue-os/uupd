@@ -47,10 +47,12 @@ func TestMarkSudoSkips(t *testing.T) {
 		description string
 		output      generic.CommandOutput
 		marked      bool
+		casks       []string
 	}{
-		{"sudo skip, brew exit 1", generic.CommandOutput{Stdout: skipped, Failure: true, ExitCode: 1}, true},
-		{"sudo skip, killed by a signal", generic.CommandOutput{Stdout: skipped, Failure: true, ExitCode: -1}, false},
-		{"other error, brew exit 1", generic.CommandOutput{Stdout: "Error: node: Failure while executing download\n", Failure: true, ExitCode: 1}, false},
+		{"sudo skip, brew exit 1", generic.CommandOutput{Stdout: skipped, Failure: true, ExitCode: 1}, true, []string{"asusctl-linux"}},
+		{"sudo skip and other error", generic.CommandOutput{Stdout: skipped + "Error: node: Failure while executing download\n", Failure: true, ExitCode: 1}, false, []string{"asusctl-linux"}},
+		{"sudo skip, killed by a signal", generic.CommandOutput{Stdout: skipped, Failure: true, ExitCode: -1}, false, nil},
+		{"other error, brew exit 1", generic.CommandOutput{Stdout: "Error: node: Failure while executing download\n", Failure: true, ExitCode: 1}, false, nil},
 	}
 
 	for _, testCase := range cases {
@@ -61,10 +63,13 @@ func TestMarkSudoSkips(t *testing.T) {
 			if marked != testCase.marked {
 				t.Fatalf("markSudoSkips() = %v, expected %v", marked, testCase.marked)
 			}
-			if marked && (output.Failure || output.ExitCode != 0 || !slices.Equal(output.NeedsManualUpdate, []string{"asusctl-linux"})) {
-				t.Fatalf("Expected a successful output listing asusctl-linux, got %+v", output)
+			if !slices.Equal(output.NeedsManualUpdate, testCase.casks) {
+				t.Fatalf("NeedsManualUpdate = %v, expected %v", output.NeedsManualUpdate, testCase.casks)
 			}
-			if !marked && (!output.Failure || output.NeedsManualUpdate != nil) {
+			if marked && (output.Failure || output.ExitCode != 0) {
+				t.Fatalf("Expected a successful output, got %+v", output)
+			}
+			if !marked && !output.Failure {
 				t.Fatalf("Expected the output to stay a failure, got %+v", output)
 			}
 		})
