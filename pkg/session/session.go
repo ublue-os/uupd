@@ -21,6 +21,8 @@ const (
 
 	shellPath   = "/bin/sh"
 	execWrapper = `exec "$0" "$@"`
+	// env(1) can itself be a symlink; this keeps the program path as argv[0].
+	envExecWrapper = `for kv do shift; [ "$kv" = -- ] && break; export "$kv"; done; exec "$@"`
 
 	maxLogLineSize = 1024 * 1024
 )
@@ -128,6 +130,22 @@ func pkexecArgs(name string, command []string) []string {
 	}
 
 	return append(args, wrapperArgs(command)...)
+}
+
+func envWrapperArgs(env []string, command []string) []string {
+	args := []string{shellPath, "-c", envExecWrapper, "sh"}
+	args = append(args, env...)
+	args = append(args, "--")
+	return append(args, command...)
+}
+
+// RunAsUserWithEnv sets KEY=VALUE variables inside the wrapper (pkexec clears env).
+func RunAsUserWithEnv(logger *slog.Logger, level slog.Level, name string, env []string, command []string) ([]byte, error) {
+	args := append([]string{"/usr/bin/pkexec", "-u", name}, envWrapperArgs(env, command)...)
+
+	cmd := exec.Command(args[0], args[1:]...)
+
+	return RunLog(logger, level, cmd)
 }
 
 func RunAsUser(logger *slog.Logger, level slog.Level, name string, command []string) ([]byte, error) {

@@ -242,6 +242,22 @@ func TestPlanSystemModuleCheckErrorStillRuns(t *testing.T) {
 	}
 }
 
+func TestManualUpdatesCollectsPackages(t *testing.T) {
+	outputs := []generic.CommandOutput{
+		{Context: "Brew Update"},
+		{Context: "Brew Upgrade", NeedsManualUpdate: []string{"asusctl-linux"}},
+		{Context: "Flatpak"},
+	}
+
+	got := manualUpdates(outputs)
+	if len(got) != 1 || got[0] != "asusctl-linux" {
+		t.Fatalf("Expected [asusctl-linux], got %v", got)
+	}
+	if manualUpdates([]generic.CommandOutput{{Context: "Flatpak"}}) != nil {
+		t.Fatal("Expected no manual updates")
+	}
+}
+
 func TestPlanSystemModuleForceSkipsCheck(t *testing.T) {
 	driver := &fakeSystemDriver{checkResult: false}
 
