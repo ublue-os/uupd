@@ -1,6 +1,6 @@
 [Unit]
 Description=Universal Blue Update Oneshot Service
-# Wait for network before the timer fires on wake from suspend (uupd also polls NM).
+# Order after the network at boot; uupd also polls NM on resume.
 Wants=network-online.target
 After=network-online.target
 StartLimitBurst=3

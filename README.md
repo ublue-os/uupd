@@ -33,9 +33,10 @@ sudo uupd
 This allows for passwordless system updates (user must be in `wheel` group)
 
 > **Note**
-> uupd waits up to 60s for NetworkManager to report full connectivity before
-> updating, so a wake-from-suspend update doesn't fail before the network is ready.
-> The systemd units also order after `network-online.target`.
+> With hardware checks enabled, uupd waits up to 60s for NetworkManager to report
+> full connectivity before updating, so a wake-from-suspend update doesn't fail
+> before the network is ready. The systemd units order after `network-online.target`
+> at boot.
 
 
 ## Run updates from command line (not recommended)
