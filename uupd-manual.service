@@ -1,5 +1,7 @@
 [Unit]
 Description=Universal Blue Update Oneshot Service - Manual Activation
+Wants=network-online.target
+After=network-online.target
 StartLimitBurst=3
 StartLimitIntervalSec=600
 

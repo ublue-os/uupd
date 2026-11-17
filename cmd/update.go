@@ -155,6 +155,13 @@ func Update(cmd *cobra.Command, args []string) error {
 	disableModuleDistrobox := modules.Distrobox.Disable
 
 	if hwCheck {
+		// Avoid failing on wake from suspend before DNS/network is ready.
+		if !force {
+			slog.Info("Waiting for network connectivity")
+			if err := checks.WaitForNetwork(); err != nil {
+				slog.Warn("Network is not ready, continuing with updates anyway", slog.Any("error", err))
+			}
+		}
 		err := checks.RunHwChecks()
 		if err != nil {
 			if errors.Is(err, checks.ErrMeteredNetwork) {

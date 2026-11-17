@@ -1,5 +1,8 @@
 [Unit]
 Description=Universal Blue Update Oneshot Service
+# Order after the network at boot; uupd also polls NM on resume.
+Wants=network-online.target
+After=network-online.target
 StartLimitBurst=3
 StartLimitIntervalSec=600
 
