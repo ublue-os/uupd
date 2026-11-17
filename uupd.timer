@@ -2,6 +2,7 @@
 [Unit]
 Description=Auto Update System Timer For Universal Blue
 Wants=network-online.target
+After=network-online.target
 
 [Timer]
 # Run daily at 4:00 AM

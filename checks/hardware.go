@@ -133,14 +133,13 @@ func network_once(conn *dbus.Conn, max uint64) error {
 	}
 
 	// check if user is connected to network
-	var connectivity uint32
-	err = nm.Call("org.freedesktop.NetworkManager.CheckConnectivity", 0).Store(&connectivity)
+	connectivity, err := nmConnectivity(conn)()
 	if err != nil {
 		return err
 	}
 
 	// 4 means fully connected: https://networkmanager.dev/docs/api/latest/nm-dbus-types.html#NMConnectivityState
-	if connectivity != 4 {
+	if connectivity != nmConnectivityFull {
 		return fmt.Errorf("network not online")
 	}
 
