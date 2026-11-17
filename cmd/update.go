@@ -154,10 +154,7 @@ func Update(cmd *cobra.Command, args []string) error {
 	disableModuleBrew := modules.Brew.Disable
 	disableModuleDistrobox := modules.Distrobox.Disable
 
-	// Waking from suspend can leave the network stack and DNS unavailable for
-	// a short while. Wait for a usable connection before running any module so
-	// a transient loss of connectivity doesn't fail the update and notify the
-	// user, only for the next retry to succeed.
+	// Avoid failing on wake from suspend before DNS/network is ready.
 	if err := checks.WaitForNetwork(); err != nil {
 		slog.Warn("Network is not ready, continuing with updates anyway", slog.Any("error", err))
 	}

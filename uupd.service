@@ -1,8 +1,6 @@
 [Unit]
 Description=Universal Blue Update Oneshot Service
-# Don't start before the network (and DNS) is available. This matters when the
-# Persistent=true timer fires on wake from suspend, before the connection is up.
-# uupd additionally waits for NetworkManager to report full connectivity.
+# Wait for network before the timer fires on wake from suspend (uupd also polls NM).
 Wants=network-online.target
 After=network-online.target
 StartLimitBurst=3
