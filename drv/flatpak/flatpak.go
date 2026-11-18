@@ -96,5 +96,15 @@ func (up FlatpakUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput,
 		finalOutput = append(finalOutput, *tmpout)
 		tracker.IncrementSection(err)
 	}
+
+	cli = []string{up.binaryPath, "remove", "--unused", "--system", "-y", "--noninteractive"}
+	flatpakCmd = exec.Command(cli[0], cli[1:]...)
+	out, err = session.RunLog(up.Config.Logger, slog.LevelDebug, flatpakCmd)
+	tmpout = CommandOutput{}.New(out, err)
+	tmpout.Context = "Unused Runtimes"
+	tmpout.Cli = cli
+	tmpout.Failure = err != nil
+	finalOutput = append(finalOutput, *tmpout)
+
 	return &finalOutput, nil
 }
