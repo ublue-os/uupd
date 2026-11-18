@@ -123,6 +123,13 @@ func Update(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	releaseSleepInhibit, err := session.InhibitSleep()
+	if err != nil {
+		slog.Warn("Failed to inhibit suspend during update", slog.Any("error", err))
+	} else {
+		defer releaseSleepInhibit()
+	}
+
 	hwCheck := conf.Checks.Hardware.Enable
 	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
