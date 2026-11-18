@@ -151,6 +151,8 @@ func init() {
 	rootCmd.Flags().Bool("disable-module-flatpak", false, "Disable the Flatpak module")
 	rootCmd.Flags().Bool("disable-module-distrobox", false, "Disable the Distrobox update module")
 	rootCmd.Flags().Bool("disable-module-brew", false, "Disable the Brew update module")
+	rootCmd.Flags().Bool("disable-module-firmware", false, "Disable the firmware update module (shorthand for --policy-module-firmware=disabled)")
+	rootCmd.Flags().String("policy-module-firmware", config.FirmwarePolicyDisabled, "Firmware module policy: disabled, notify-only")
 	rootCmd.Flags().Bool("hw-check", false, "Enable hardware checks before updates (useful for running auto updates)")
 
 	_ = viper.BindPFlag("modules.flatpak.disable", rootCmd.Flags().Lookup("disable-module-flatpak"))

@@ -8,7 +8,9 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/ublue-os/uupd/drv/generic"
+	"github.com/ublue-os/uupd/pkg/config"
 	"github.com/ublue-os/uupd/pkg/percent"
 )
 
@@ -180,6 +182,70 @@ func (driver *fakeSystemDriver) Staged() (bool, error) {
 
 func (driver *fakeSystemDriver) Update(*percent.Incrementer) (*[]generic.CommandOutput, error) {
 	return &[]generic.CommandOutput{}, nil
+}
+
+func newFirmwarePolicyCommand(t *testing.T, policy string) *cobra.Command {
+	t.Helper()
+	cmd := &cobra.Command{}
+	cmd.Flags().Bool("disable-module-firmware", false, "")
+	cmd.Flags().String("policy-module-firmware", config.FirmwarePolicyDisabled, "")
+	if policy != "" {
+		if err := cmd.Flags().Set("policy-module-firmware", policy); err != nil {
+			t.Fatalf("failed setting policy flag: %v", err)
+		}
+	}
+	return cmd
+}
+
+func TestResolveFirmwarePolicy(t *testing.T) {
+	if err := config.InitConfig(config.DEFAULT_PATH); err != nil {
+		t.Fatalf("unable to init config: %v", err)
+	}
+
+	// No flags: the (disabled by default) config value is used.
+	cmd := newFirmwarePolicyCommand(t, "")
+	policy, err := resolveFirmwarePolicy(cmd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if policy != config.FirmwarePolicyDisabled {
+		t.Fatalf("expected default policy, got %q", policy)
+	}
+
+	// --policy-module-firmware overrides the config value.
+	cmd = newFirmwarePolicyCommand(t, "notify-only")
+	policy, err = resolveFirmwarePolicy(cmd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if policy != config.FirmwarePolicyNotifyOnly {
+		t.Fatalf("expected notify-only policy, got %q", policy)
+	}
+
+	// --disable-module-firmware takes precedence and means disabled.
+	if err := cmd.Flags().Set("disable-module-firmware", "true"); err != nil {
+		t.Fatalf("failed setting disable flag: %v", err)
+	}
+	policy, err = resolveFirmwarePolicy(cmd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if policy != config.FirmwarePolicyDisabled {
+		t.Fatalf("expected disabled policy, got %q", policy)
+	}
+}
+
+func TestResolveFirmwarePolicyRejectsUpdatePolicies(t *testing.T) {
+	if err := config.InitConfig(config.DEFAULT_PATH); err != nil {
+		t.Fatalf("unable to init config: %v", err)
+	}
+
+	for _, invalid := range []string{"update-only", "update-and-notify"} {
+		cmd := newFirmwarePolicyCommand(t, invalid)
+		if _, err := resolveFirmwarePolicy(cmd); err == nil {
+			t.Fatalf("expected an error for policy %q", invalid)
+		}
+	}
 }
 
 func TestPlanSystemModuleRunsWhenCheckReportsNoUpdate(t *testing.T) {
