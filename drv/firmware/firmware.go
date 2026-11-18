@@ -97,11 +97,10 @@ func FormatUpdates(updates []FirmwareUpdate) string {
 }
 
 // FirmwareUpdater checks for firmware updates and notifies users. It is
-// disabled unless the configured policy is "notify-only".
+// disabled by default and only enabled when modules.fwupd.disable is false.
 type FirmwareUpdater struct {
 	Config     DriverConfiguration
 	binaryPath string
-	policy     string
 	users      []session.User
 }
 
@@ -113,27 +112,19 @@ func (up FirmwareUpdater) Steps() int {
 }
 
 func (up FirmwareUpdater) New(config UpdaterInitConfiguration) (FirmwareUpdater, error) {
-	conf := appConfig.Get().Modules.Firmware
+	conf := appConfig.Get().Modules.Fwupd
 
 	up.Config = DriverConfiguration{
 		Title:       "Firmware",
 		Description: "Firmware Update Notification",
-		Enabled:     appConfig.FirmwarePolicyEnabled(conf.Policy),
+		Enabled:     !conf.Disable,
 		DryRun:      config.DryRun,
 		Environment: config.Environment,
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.binaryPath = conf.BinaryPath
-	up.policy = appConfig.NormalizeFirmwarePolicy(conf.Policy)
 
 	return up, nil
-}
-
-// SetPolicy overrides the policy read from the configuration (used by the
-// --policy-module-firmware and --disable-module-firmware CLI flags).
-func (up *FirmwareUpdater) SetPolicy(policy string) {
-	up.policy = appConfig.NormalizeFirmwarePolicy(policy)
-	up.Config.Enabled = appConfig.FirmwarePolicyEnabled(policy)
 }
 
 func (up *FirmwareUpdater) SetUsers(users []session.User) {
@@ -213,13 +204,10 @@ func (up FirmwareUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutpu
 	up.Config.Logger.Info("Firmware updates available",
 		slog.Int("count", len(updates)),
 		slog.String("devices", body),
-		slog.String("policy", up.policy),
 	)
 
-	if appConfig.FirmwarePolicyEnabled(up.policy) {
-		if err := session.Notify(up.users, "Firmware updates available", body, "normal"); err != nil {
-			up.Config.Logger.Warn("Failed notifying users about firmware updates", slog.Any("error", err))
-		}
+	if err := session.Notify(up.users, "Firmware updates available", body, "normal"); err != nil {
+		up.Config.Logger.Warn("Failed notifying users about firmware updates", slog.Any("error", err))
 	}
 
 	output.Stdout = body

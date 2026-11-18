@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -35,13 +34,10 @@ type Config struct {
 			BinaryPath string `mapstructure:"binary-path"`
 		} `mapstructure:"distrobox"`
 
-		Firmware struct {
-			// Policy controls what the firmware module does. Supported values
-			// are "disabled" (default) and "notify-only". Automatic firmware
-			// updates are intentionally not supported.
-			Policy     string `mapstructure:"policy"`
+		Fwupd struct {
+			Disable    bool   `mapstructure:"disable"`
 			BinaryPath string `mapstructure:"binary-path"`
-		} `mapstructure:"firmware"`
+		} `mapstructure:"fwupd"`
 	} `mapstructure:"modules"`
 
 	Checks struct {
@@ -57,34 +53,6 @@ type Config struct {
 
 const DEFAULT_PATH string = "/etc/uupd/config.json"
 const USR_PATH string = "/usr/lib/uupd/config.json"
-
-// Supported firmware module policies. The module is disabled by default so
-// enabling it is fully opt-in. Only notification is supported: uupd never
-// installs firmware updates on its own.
-const (
-	FirmwarePolicyDisabled   string = "disabled"
-	FirmwarePolicyNotifyOnly string = "notify-only"
-)
-
-// NormalizeFirmwarePolicy lowercases and trims a firmware policy value.
-func NormalizeFirmwarePolicy(policy string) string {
-	return strings.ToLower(strings.TrimSpace(policy))
-}
-
-// ValidateFirmwarePolicy returns an error when the policy is not supported.
-func ValidateFirmwarePolicy(policy string) error {
-	switch NormalizeFirmwarePolicy(policy) {
-	case FirmwarePolicyDisabled, FirmwarePolicyNotifyOnly:
-		return nil
-	default:
-		return fmt.Errorf("invalid firmware policy %q: supported policies are %q and %q", policy, FirmwarePolicyDisabled, FirmwarePolicyNotifyOnly)
-	}
-}
-
-// FirmwarePolicyEnabled reports whether a policy enables the firmware module.
-func FirmwarePolicyEnabled(policy string) bool {
-	return NormalizeFirmwarePolicy(policy) == FirmwarePolicyNotifyOnly
-}
 
 var conf Config
 
@@ -105,10 +73,10 @@ func defaults() {
 	d("modules.distrobox.disable", false)
 	d("modules.distrobox.binary-path", "/usr/bin/distrobox")
 
-	// The firmware module is opt-in: it does nothing unless the policy is
-	// explicitly changed to "notify-only".
-	d("modules.firmware.policy", FirmwarePolicyDisabled)
-	d("modules.firmware.binary-path", "/usr/bin/fwupdmgr")
+	// The fwupd module is opt-in: disabled by default, like the other modules
+	// it is enabled by setting "disable": false.
+	d("modules.fwupd.disable", true)
+	d("modules.fwupd.binary-path", "/usr/bin/fwupdmgr")
 
 	// checks
 	d("checks.hardware.enable", true)
@@ -127,8 +95,7 @@ func defaults() {
 	_ = e("modules.system.skopeo-binary", "UUPD_SKOPEO_BINARY")
 	_ = e("modules.flatpak.binary-path", "UUPD_FLATPAK_BINARY")
 	_ = e("modules.distrobox.binary-path", "UUPD_DISTROBOX_BINARY")
-	_ = e("modules.firmware.policy", "UUPD_FIRMWARE_POLICY")
-	_ = e("modules.firmware.binary-path", "UUPD_FIRMWDMGR_BINARY")
+	_ = e("modules.fwupd.binary-path", "UUPD_FWUPD_BINARY")
 
 	var (
 		HomebrewDefaultPrefix string = "/home/linuxbrew/.linuxbrew"

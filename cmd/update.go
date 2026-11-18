@@ -103,35 +103,6 @@ func planSystemModule(
 	return run, updateAvailable
 }
 
-// resolveFirmwarePolicy determines the effective firmware module policy from
-// the config file and the CLI flags. The CLI flag takes precedence, with
-// --disable-module-firmware acting as a shorthand for the disabled policy.
-func resolveFirmwarePolicy(cmd *cobra.Command) (string, error) {
-	policy := config.Get().Modules.Firmware.Policy
-	if cmd.Flags().Changed("policy-module-firmware") {
-		value, err := cmd.Flags().GetString("policy-module-firmware")
-		if err != nil {
-			return "", err
-		}
-		policy = value
-	}
-	// --disable-module-firmware is an explicit opt-out and wins over the
-	// policy flag regardless of the order the flags were provided in.
-	if cmd.Flags().Changed("disable-module-firmware") {
-		disabled, err := cmd.Flags().GetBool("disable-module-firmware")
-		if err != nil {
-			return "", err
-		}
-		if disabled {
-			policy = config.FirmwarePolicyDisabled
-		}
-	}
-	if err := config.ValidateFirmwarePolicy(policy); err != nil {
-		return "", err
-	}
-	return config.NormalizeFirmwarePolicy(policy), nil
-}
-
 func Update(cmd *cobra.Command, args []string) error {
 	conf := config.Get()
 	modules := conf.Modules
@@ -232,17 +203,11 @@ func Update(cmd *cobra.Command, args []string) error {
 	distroboxUpdater.Config.Enabled = !disableModuleDistrobox
 	distroboxUpdater.SetUsers(users)
 
-	firmwarePolicy, err := resolveFirmwarePolicy(cmd)
-	if err != nil {
-		slog.Error("Invalid firmware module configuration", slog.Any("error", err))
-		return err
-	}
 	firmwareUpdater, err := firmware.FirmwareUpdater{}.New(*initConfiguration)
 	if err != nil {
 		firmwareUpdater.Config.Enabled = false
 		slog.Debug("Firmware driver failed to initialize", slog.Any("error", err))
 	}
-	firmwareUpdater.SetPolicy(firmwarePolicy)
 	firmwareUpdater.SetUsers(users)
 
 	mainSystemDriver, mainSystemDriverConfig, _, _ := system.InitializeSystemDriver(*initConfiguration)
@@ -317,7 +282,7 @@ func Update(cmd *cobra.Command, args []string) error {
 	}
 
 	if firmwareUpdater.Config.Enabled {
-		slog.Debug(fmt.Sprintf("%s module", firmwareUpdater.Config.Title), slog.String("module", strings.ToLower(firmwareUpdater.Config.Title)), slog.Any("module_configuration", firmwareUpdater.Config), slog.String("policy", firmwarePolicy))
+		slog.Debug(fmt.Sprintf("%s module", firmwareUpdater.Config.Title), slog.String("module", strings.ToLower(firmwareUpdater.Config.Title)), slog.Any("module_configuration", firmwareUpdater.Config))
 		_ = runModule(firmwareUpdater.Config.Title, &tracker, &outputs, firmwareUpdater.Update)
 	}
 

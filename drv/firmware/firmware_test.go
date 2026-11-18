@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/ublue-os/uupd/drv/firmware"
 	"github.com/ublue-os/uupd/drv/generic"
 	appConfig "github.com/ublue-os/uupd/pkg/config"
@@ -13,6 +14,13 @@ import (
 	"github.com/ublue-os/uupd/pkg/percent"
 	"github.com/ublue-os/uupd/pkg/session"
 )
+
+func TestMain(m *testing.M) {
+	if err := appConfig.InitConfig(appConfig.DEFAULT_PATH); err != nil {
+		panic(err)
+	}
+	os.Exit(m.Run())
+}
 
 const updatesJSON = `[
 	{
@@ -112,7 +120,20 @@ func TestNewDefaultsToDisabled(t *testing.T) {
 	}
 }
 
-func TestSetPolicy(t *testing.T) {
+func TestNewEnabledWhenNotDisabled(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	conf := `{"modules":{"fwupd":{"disable":false}}}`
+	if err := os.WriteFile(path, []byte(conf), 0644); err != nil {
+		t.Fatalf("unable to write config: %v", err)
+	}
+	t.Cleanup(func() {
+		viper.Reset()
+		_ = appConfig.InitConfig(appConfig.DEFAULT_PATH)
+	})
+	if err := appConfig.InitConfig(path); err != nil {
+		t.Fatalf("unable to init config: %v", err)
+	}
+
 	initConfig := generic.UpdaterInitConfiguration{
 		DryRun: true,
 		Logger: appLogging.NewMuteLogger(),
@@ -121,15 +142,8 @@ func TestSetPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	updater.SetPolicy(appConfig.FirmwarePolicyNotifyOnly)
 	if !updater.Config.Enabled || updater.Steps() != 1 {
-		t.Fatal("notify-only policy must enable the module")
-	}
-
-	updater.SetPolicy(appConfig.FirmwarePolicyDisabled)
-	if updater.Config.Enabled || updater.Steps() != 0 {
-		t.Fatal("disabled policy must disable the module")
+		t.Fatal("fwupd module must be enabled when disable is false")
 	}
 }
 
@@ -143,7 +157,7 @@ func withFwupdmgr(t *testing.T, output string) firmware.FirmwareUpdater {
 		t.Fatalf("failed writing fake fwupdmgr: %v", err)
 	}
 
-	t.Setenv("UUPD_FIRMWDMGR_BINARY", path)
+	t.Setenv("UUPD_FWUPD_BINARY", path)
 	t.Cleanup(func() { _ = appConfig.InitConfig(appConfig.DEFAULT_PATH) })
 	if err := appConfig.InitConfig(appConfig.DEFAULT_PATH); err != nil {
 		t.Fatalf("unable to init config: %v", err)
@@ -157,7 +171,7 @@ func withFwupdmgr(t *testing.T, output string) firmware.FirmwareUpdater {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	updater.SetPolicy(appConfig.FirmwarePolicyNotifyOnly)
+	updater.Config.Enabled = true
 	return updater
 }
 
@@ -201,7 +215,7 @@ func TestUpdateFwupdmgrFailureIsBestEffort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	updater.SetPolicy(appConfig.FirmwarePolicyNotifyOnly)
+	updater.Config.Enabled = true
 	updater.SetBinaryPath("/nonexistent/fwupdmgr")
 
 	tracker := percent.NewIncrementer(false, 1)

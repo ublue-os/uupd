@@ -35,46 +35,26 @@ func TestEnvVars(t *testing.T) {
 	}
 }
 
-func TestFirmwarePolicyDefaultsAndEnv(t *testing.T) {
+func TestFwupdDefaultsAndEnv(t *testing.T) {
 	err := config.InitConfig(config.DEFAULT_PATH)
 	if err != nil {
 		t.Fatalf("unable to init config: %v", err)
 	}
 	conf := config.Get()
-	if conf.Modules.Firmware.Policy != config.FirmwarePolicyDisabled {
-		t.Fatalf("firmware module must be disabled by default, got %q", conf.Modules.Firmware.Policy)
+	if !conf.Modules.Fwupd.Disable {
+		t.Fatal("fwupd module must be disabled by default")
 	}
-	if config.FirmwarePolicyEnabled(conf.Modules.Firmware.Policy) {
-		t.Fatal("disabled firmware policy must not enable the module")
+	if conf.Modules.Fwupd.BinaryPath != "/usr/bin/fwupdmgr" {
+		t.Fatalf("unexpected default fwupdmgr binary: %q", conf.Modules.Fwupd.BinaryPath)
 	}
 
-	t.Setenv("UUPD_FIRMWARE_POLICY", "NOTIFY-ONLY")
-	t.Setenv("UUPD_FIRMWDMGR_BINARY", "/usr/bin/fwupdmgr-test")
+	t.Setenv("UUPD_FWUPD_BINARY", "/usr/bin/fwupdmgr-test")
 	if err := config.InitConfig(config.DEFAULT_PATH); err != nil {
 		t.Fatalf("unable to init config: %v", err)
 	}
 	conf = config.Get()
-	if conf.Modules.Firmware.Policy != "NOTIFY-ONLY" {
-		t.Fatalf("environment variable precedence failed for firmware policy: %q", conf.Modules.Firmware.Policy)
-	}
-	if !config.FirmwarePolicyEnabled(conf.Modules.Firmware.Policy) {
-		t.Fatal("notify-only policy (case insensitive) must enable the module")
-	}
-	if conf.Modules.Firmware.BinaryPath != "/usr/bin/fwupdmgr-test" {
-		t.Fatalf("environment variable precedence failed for fwupdmgr binary: %q", conf.Modules.Firmware.BinaryPath)
-	}
-}
-
-func TestValidateFirmwarePolicy(t *testing.T) {
-	for _, policy := range []string{config.FirmwarePolicyDisabled, config.FirmwarePolicyNotifyOnly, " Notify-Only "} {
-		if err := config.ValidateFirmwarePolicy(policy); err != nil {
-			t.Fatalf("unexpected error for %q: %v", policy, err)
-		}
-	}
-	for _, policy := range []string{"", "update-only", "update-and-notify", "bogus"} {
-		if err := config.ValidateFirmwarePolicy(policy); err == nil {
-			t.Fatalf("expected an error for invalid policy %q", policy)
-		}
+	if conf.Modules.Fwupd.BinaryPath != "/usr/bin/fwupdmgr-test" {
+		t.Fatalf("environment variable precedence failed for fwupdmgr binary: %q", conf.Modules.Fwupd.BinaryPath)
 	}
 }
 
