@@ -86,7 +86,8 @@ func (up FlatpakUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput,
 	for _, user := range up.users {
 		context := *up.Config.UserDescription + " " + user.Name
 		tracker.ReportStatusChange(up.Config.Title, context)
-		cli := []string{up.binaryPath, "update", "-y", "--noninteractive"}
+		// --user keeps autoremove scoped to the user install; non-root users cannot uninstall system runtimes.
+		cli := []string{up.binaryPath, "update", "-y", "--noninteractive", "--user"}
 		out, err := session.RunAsUser(up.Config.Logger, slog.LevelDebug, user.Name, cli)
 		tmpout := CommandOutput{}.New(out, err)
 		tmpout.Context = context
