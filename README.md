@@ -91,6 +91,11 @@ The default configuration is installed at `/usr/lib/uupd/config.json`. To overri
 - `fwupd.binary-path`: path to the `fwupdmgr` binary (default `/usr/bin/fwupdmgr`)
 - `system.disable`: disable system update (bootc/rpm-ostree) module
 
+> **Note**
+> The `fwupd` module only checks for available firmware updates and notifies you
+> about them. uupd will **never** install or upgrade firmware under any
+> circumstances — enabling it is harmless and only provides notifications.
+
 ### `checks.hardware`
 
 - `enable`: enable hardware checks when running automatic updates (making sure wifi, etc is runnable)
