@@ -18,6 +18,10 @@
         "flatpak": {
             "disable": false
         },
+        "fwupd": {
+            "disable": true,
+            "binary-path": "/usr/bin/fwupdmgr"
+        },
         "system": {
             "disable": false
         }

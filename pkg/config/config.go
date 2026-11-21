@@ -33,6 +33,11 @@ type Config struct {
 			Disable    bool   `mapstructure:"disable"`
 			BinaryPath string `mapstructure:"binary-path"`
 		} `mapstructure:"distrobox"`
+
+		Fwupd struct {
+			Disable    bool   `mapstructure:"disable"`
+			BinaryPath string `mapstructure:"binary-path"`
+		} `mapstructure:"fwupd"`
 	} `mapstructure:"modules"`
 
 	Checks struct {
@@ -68,6 +73,11 @@ func defaults() {
 	d("modules.distrobox.disable", false)
 	d("modules.distrobox.binary-path", "/usr/bin/distrobox")
 
+	// The fwupd module is opt-in: disabled by default, like the other modules
+	// it is enabled by setting "disable": false.
+	d("modules.fwupd.disable", true)
+	d("modules.fwupd.binary-path", "/usr/bin/fwupdmgr")
+
 	// checks
 	d("checks.hardware.enable", true)
 	d("checks.hardware.bat-min-percent", 20)
@@ -85,6 +95,7 @@ func defaults() {
 	_ = e("modules.system.skopeo-binary", "UUPD_SKOPEO_BINARY")
 	_ = e("modules.flatpak.binary-path", "UUPD_FLATPAK_BINARY")
 	_ = e("modules.distrobox.binary-path", "UUPD_DISTROBOX_BINARY")
+	_ = e("modules.fwupd.binary-path", "UUPD_FWUPD_BINARY")
 
 	var (
 		HomebrewDefaultPrefix string = "/home/linuxbrew/.linuxbrew"

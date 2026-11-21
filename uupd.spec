@@ -20,6 +20,7 @@ BuildRequires:  systemd-rpm-macros
 Recommends:     bootc
 Recommends:     distrobox
 Recommends:     flatpak
+Recommends:     fwupd
 Requires:       libnotify
 Requires:       systemd
 Provides:       %{name} = %{version}

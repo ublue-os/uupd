@@ -75,6 +75,10 @@ The default configuration is installed at `/usr/lib/uupd/config.json`. To overri
         "flatpak": {
             "disable": false
         },
+        "fwupd": {
+            "disable": true,
+            "binary-path": "/usr/bin/fwupdmgr"
+        },
         "system": {
             "disable": false
         }
@@ -89,7 +93,14 @@ The default configuration is installed at `/usr/lib/uupd/config.json`. To overri
 - `brew.disable`: disable brew update module
 - `distrobox.disable`: disable distrobox update module
 - `flatpak.disable`: disable flatpak update module
+- `fwupd.disable`: disable the fwupd firmware notification module (`true` by default)
+- `fwupd.binary-path`: path to the `fwupdmgr` binary (default `/usr/bin/fwupdmgr`)
 - `system.disable`: disable system update (bootc/rpm-ostree) module
+
+> **Note**
+> The `fwupd` module only checks for available firmware updates and notifies you
+> about them. uupd will **never** install or upgrade firmware under any
+> circumstances — enabling it is harmless and only provides notifications.
 
 ### `checks.hardware`
 

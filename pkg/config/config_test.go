@@ -35,6 +35,29 @@ func TestEnvVars(t *testing.T) {
 	}
 }
 
+func TestFwupdDefaultsAndEnv(t *testing.T) {
+	err := config.InitConfig(config.DEFAULT_PATH)
+	if err != nil {
+		t.Fatalf("unable to init config: %v", err)
+	}
+	conf := config.Get()
+	if !conf.Modules.Fwupd.Disable {
+		t.Fatal("fwupd module must be disabled by default")
+	}
+	if conf.Modules.Fwupd.BinaryPath != "/usr/bin/fwupdmgr" {
+		t.Fatalf("unexpected default fwupdmgr binary: %q", conf.Modules.Fwupd.BinaryPath)
+	}
+
+	t.Setenv("UUPD_FWUPD_BINARY", "/usr/bin/fwupdmgr-test")
+	if err := config.InitConfig(config.DEFAULT_PATH); err != nil {
+		t.Fatalf("unable to init config: %v", err)
+	}
+	conf = config.Get()
+	if conf.Modules.Fwupd.BinaryPath != "/usr/bin/fwupdmgr-test" {
+		t.Fatalf("environment variable precedence failed for fwupdmgr binary: %q", conf.Modules.Fwupd.BinaryPath)
+	}
+}
+
 func TestConfigLocation(t *testing.T) {
 	newConfig := `{
 			"modules": {

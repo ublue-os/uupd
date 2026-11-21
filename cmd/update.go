@@ -13,6 +13,7 @@ import (
 	"github.com/ublue-os/uupd/checks"
 	"github.com/ublue-os/uupd/drv/brew"
 	"github.com/ublue-os/uupd/drv/distrobox"
+	"github.com/ublue-os/uupd/drv/firmware"
 	"github.com/ublue-os/uupd/drv/flatpak"
 	drv "github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/system"
@@ -217,6 +218,13 @@ func Update(cmd *cobra.Command, args []string) error {
 	distroboxUpdater.Config.Enabled = !disableModuleDistrobox
 	distroboxUpdater.SetUsers(users)
 
+	firmwareUpdater, err := firmware.FirmwareUpdater{}.New(*initConfiguration)
+	if err != nil {
+		firmwareUpdater.Config.Enabled = false
+		slog.Debug("Firmware driver failed to initialize", slog.Any("error", err))
+	}
+	firmwareUpdater.SetUsers(users)
+
 	mainSystemDriver, mainSystemDriverConfig, _, _ := system.InitializeSystemDriver(*initConfiguration)
 
 	systemDriverEnabled := mainSystemDriverConfig.Enabled
@@ -240,7 +248,7 @@ func Update(cmd *cobra.Command, args []string) error {
 		)
 	}
 
-	totalSteps := brewUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps()
+	totalSteps := brewUpdater.Steps() + flatpakUpdater.Steps() + distroboxUpdater.Steps() + firmwareUpdater.Steps()
 	if mainSystemDriverConfig.Enabled {
 		totalSteps += mainSystemDriver.Steps()
 	}
@@ -286,6 +294,11 @@ func Update(cmd *cobra.Command, args []string) error {
 	if distroboxUpdater.Config.Enabled {
 		slog.Debug(fmt.Sprintf("%s module", distroboxUpdater.Config.Title), slog.String("module", strings.ToLower(distroboxUpdater.Config.Title)), slog.Any("module_configuration", distroboxUpdater.Config))
 		_ = runModule(distroboxUpdater.Config.Title, &tracker, &outputs, distroboxUpdater.Update)
+	}
+
+	if firmwareUpdater.Config.Enabled {
+		slog.Debug(fmt.Sprintf("%s module", firmwareUpdater.Config.Title), slog.String("module", strings.ToLower(firmwareUpdater.Config.Title)), slog.Any("module_configuration", firmwareUpdater.Config))
+		_ = runModule(firmwareUpdater.Config.Title, &tracker, &outputs, firmwareUpdater.Update)
 	}
 
 	if !disableProgress {

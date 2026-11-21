@@ -151,12 +151,14 @@ func init() {
 	rootCmd.Flags().Bool("disable-module-flatpak", false, "Disable the Flatpak module")
 	rootCmd.Flags().Bool("disable-module-distrobox", false, "Disable the Distrobox update module")
 	rootCmd.Flags().Bool("disable-module-brew", false, "Disable the Brew update module")
+	rootCmd.Flags().Bool("disable-module-fwupd", true, "Disable the fwupd firmware update module")
 	rootCmd.Flags().Bool("hw-check", false, "Enable hardware checks before updates (useful for running auto updates)")
 
 	_ = viper.BindPFlag("modules.flatpak.disable", rootCmd.Flags().Lookup("disable-module-flatpak"))
 	_ = viper.BindPFlag("modules.brew.disable", rootCmd.Flags().Lookup("disable-module-brew"))
 	_ = viper.BindPFlag("modules.system.disable", rootCmd.Flags().Lookup("disable-module-system"))
 	_ = viper.BindPFlag("modules.distrobox.disable", rootCmd.Flags().Lookup("disable-module-distrobox"))
+	_ = viper.BindPFlag("modules.fwupd.disable", rootCmd.Flags().Lookup("disable-module-fwupd"))
 	_ = viper.BindPFlag("checks.hardware.enable", rootCmd.Flags().Lookup("hw-check"))
 
 	rootCmd.PersistentFlags().BoolVar(&fLogJson, "json", false, "Print logs as json")
