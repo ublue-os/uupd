@@ -144,16 +144,18 @@ func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, 
 func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slog.Logger, level slog.Level) {
 	outputLevel := appLogging.CommandOutputLevel(logger, level)
 	for scanner.Scan() {
-
-		logger.Log(context.TODO(), outputLevel, "Command output",
-			slog.String("status", "running"),
-			slog.String("output", scanner.Text()),
-		)
+		raw := scanner.Text()
 		var progress BootcProgress
 
 		err := json.Unmarshal(scanner.Bytes(), &progress)
 
 		if err != nil {
+			// Not a progress event. Keep non-progress bootc output (warnings,
+			// errors) for diagnostics; those lines are rare.
+			logger.Log(context.TODO(), outputLevel, "Command output",
+				slog.String("status", "running"),
+				slog.String("output", raw),
+			)
 			continue
 		}
 		stageInfo, exists := PROGRESS_STAGES[progress.Task]
@@ -162,22 +164,28 @@ func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slo
 			stageInfo = PROGRESS_STAGES["unknown"]
 		}
 
+		var value float64
 		switch progress.Type {
 		case "ProgressSteps":
 			curr := progress.Steps
 			total := progress.StepsTotal
-			value := float64(stageInfo.Start) + math.Min(float64(stageInfo.Length), float64(curr)/float64(total+1)*float64(stageInfo.Length))
-			tracker.SectionPercent(value)
-			tracker.ReportStatusChange("System", stageInfo.Text)
-
+			value = float64(stageInfo.Start) + math.Min(float64(stageInfo.Length), float64(curr)/float64(total+1)*float64(stageInfo.Length))
 		case "ProgressBytes":
 			curr := progress.Bytes
 			total := progress.BytesTotal
-			value := float64(stageInfo.Start) + math.Min(float64(stageInfo.Length), float64(curr)/float64(total)*float64(stageInfo.Length))
-			tracker.SectionPercent(value)
-			tracker.ReportStatusChange("System", stageInfo.Text)
+			value = float64(stageInfo.Start) + math.Min(float64(stageInfo.Length), float64(curr)/float64(total)*float64(stageInfo.Length))
 		default:
 			continue
+		}
+
+		tracker.SectionPercent(value)
+		// The raw payload is a diagnostic for the status record. Only emit it
+		// when a status record was actually logged so both stay rate limited.
+		if tracker.ReportStatusChange("System", stageInfo.Text) {
+			logger.Log(context.TODO(), outputLevel, "Command output",
+				slog.String("status", "running"),
+				slog.String("output", raw),
+			)
 		}
 	}
 }
