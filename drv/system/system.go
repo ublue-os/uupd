@@ -150,8 +150,7 @@ func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slo
 		err := json.Unmarshal(scanner.Bytes(), &progress)
 
 		if err != nil {
-			// Not a progress event. Keep non-progress bootc output (warnings,
-			// errors) for diagnostics; those lines are rare.
+			// Non-progress output is rare; always keep it.
 			logger.Log(context.TODO(), outputLevel, "Command output",
 				slog.String("status", "running"),
 				slog.String("output", raw),
@@ -179,8 +178,7 @@ func bootcScan(scanner *bufio.Scanner, tracker *percent.Incrementer, logger *slo
 		}
 
 		tracker.SectionPercent(value)
-		// The raw payload is a diagnostic for the status record. Only emit it
-		// when a status record was actually logged so both stay rate limited.
+		// Keep the raw payload in sync with the throttled status record.
 		if tracker.ReportStatusChange("System", stageInfo.Text) {
 			logger.Log(context.TODO(), outputLevel, "Command output",
 				slog.String("status", "running"),

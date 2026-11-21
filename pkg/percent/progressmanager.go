@@ -17,16 +17,9 @@ import (
 )
 
 const (
-	// progressLogInterval is the minimum time between progress log records when
-	// the progress bar is disabled. bootc emits progress events far faster than
-	// this, so logging every event floods the journal and downstream JSON
-	// consumers with near-identical records.
+	// bootc emits far more progress events than should become log records.
 	progressLogInterval = 5 * time.Second
-
-	// progressLogPercent is the minimum change in overall progress that warrants
-	// a log record before progressLogInterval has elapsed. This keeps fast
-	// updates informative without tying the record count to the event rate.
-	progressLogPercent = 10.0
+	progressLogPercent  = 10.0
 )
 
 type Incrementer struct {
@@ -38,9 +31,7 @@ type Incrementer struct {
 	PTracker        StepTracker
 	currentModule   string
 
-	// The fields below rate limit progress logging when the bar is disabled.
-	// currentStage tracks stage changes (e.g. Downloading -> Importing), which
-	// are always logged. now is injectable for tests.
+	// Rate limiting state for the non-TUI path. now is injectable for tests.
 	currentStage      string
 	lastProgressLog   time.Time
 	lastLoggedPercent float64
@@ -126,9 +117,8 @@ func NewProgressWriter() progress.Writer {
 	return pw
 }
 
-// ReportStatusChange reports progress to the active UI. When the progress bar
-// is disabled it writes a rate-limited log record instead and returns whether
-// a record was emitted, allowing callers to keep their own diagnostics in sync.
+// ReportStatusChange reports progress to the active UI. With the bar disabled it
+// logs a rate-limited record and returns whether one was emitted.
 func (it *Incrementer) ReportStatusChange(title string, description string) bool {
 	if !it.ProgressEnabled {
 		starting := it.currentModule != title
@@ -182,11 +172,8 @@ func (it *Incrementer) ReportStatusChange(title string, description string) bool
 	return false
 }
 
-// shouldLogProgress reports whether a routine progress update deserves a log
-// record. Module transitions are always logged by ReportStatusChange and stage
-// transitions (e.g. Downloading -> Importing) are handled here; in between, a
-// record is written at most once per progressLogInterval or every
-// progressLogPercent points of overall progress.
+// shouldLogProgress always allows stage changes, then throttles by time or
+// overall progress.
 func (it *Incrementer) shouldLogProgress(description string, percent float64) bool {
 	if description != it.currentStage {
 		return true
