@@ -36,17 +36,17 @@ func countMsg(records []map[string]any, msg string) int {
 	return count
 }
 
-// bootc emits a progress event per downloaded chunk. In the non-TUI path each
-// event used to produce both an INFO "Updating" record and a raw payload
-// record. This test feeds a few hundred events through bootcScan and checks
-// that only stage transitions and occasional updates are logged.
-func TestBootcScanRateLimitsProgressRecords(t *testing.T) {
-	var statusBuf, outputBuf bytes.Buffer
-	previous := slog.Default()
-	t.Cleanup(func() { slog.SetDefault(previous) })
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&statusBuf, nil)))
-	logger := slog.New(slog.NewJSONHandler(&outputBuf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+func recordOutputs(records []map[string]any) map[string]bool {
+	outputs := map[string]bool{}
+	for _, record := range records {
+		if output, ok := record["output"].(string); ok {
+			outputs[output] = true
+		}
+	}
+	return outputs
+}
 
+func bootcEventStream() string {
 	var input strings.Builder
 	for i := 0; i < 300; i++ {
 		fmt.Fprintf(&input, `{"type":"ProgressBytes","task":"pulling","bytes":%d,"bytesTotal":300}`+"\n", i)
@@ -58,43 +58,39 @@ func TestBootcScanRateLimitsProgressRecords(t *testing.T) {
 		fmt.Fprintf(&input, `{"type":"ProgressSteps","task":"staging","steps":%d,"stepsTotal":100}`+"\n", i)
 	}
 	input.WriteString("bootc: non-progress diagnostic line\n")
+	return input.String()
+}
 
-	scanner := bufio.NewScanner(strings.NewReader(input.String()))
+// A high-frequency bootc stream used to produce one status and one raw record
+// per event; only transitions and occasional updates should be logged now.
+func TestBootcScanRateLimitsProgressRecords(t *testing.T) {
+	var statusBuf, outputBuf bytes.Buffer
+	previous := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&statusBuf, nil)))
+	logger := slog.New(slog.NewJSONHandler(&outputBuf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
 	tracker := percent.NewIncrementer(false, 3)
-	bootcScan(scanner, &tracker, logger, slog.LevelDebug)
+	bootcScan(bufio.NewScanner(strings.NewReader(bootcEventStream())), &tracker, logger, slog.LevelDebug)
 
 	statusRecords := decodeScanRecords(t, statusBuf.Bytes())
 	outputRecords := decodeScanRecords(t, outputBuf.Bytes())
 
 	updating := countMsg(statusRecords, "Updating")
-	commandOutput := countMsg(outputRecords, "Command output")
 	if updating < 3 || updating > 10 {
 		t.Fatalf("Expected a handful of Updating records for 500 events, got %d: %v", updating, statusRecords)
 	}
-	// One raw record per logged status, plus the non-progress diagnostic line.
-	if commandOutput != updating+1 {
-		t.Fatalf("Expected %d Command output records, got %d", updating+1, commandOutput)
+	if got := countMsg(outputRecords, "Command output"); got != updating+1 {
+		t.Fatalf("Expected %d Command output records, got %d", updating+1, got)
 	}
 
-	stages := map[string]bool{}
-	for _, record := range statusRecords {
-		if output, ok := record["output"].(string); ok {
-			stages[output] = true
-		}
-	}
+	statuses := recordOutputs(statusRecords)
 	for _, stage := range []string{"Updating System (Downloading)", "Updating System (Importing)", "Updating System (Deploying)"} {
-		if !stages[stage] {
-			t.Fatalf("Expected a record for stage %q, got %v", stage, stages)
+		if !statuses[stage] {
+			t.Fatalf("Expected a record for stage %q, got %v", stage, statuses)
 		}
 	}
-
-	foundDiagnostic := false
-	for _, record := range outputRecords {
-		if record["output"] == "bootc: non-progress diagnostic line" {
-			foundDiagnostic = true
-		}
-	}
-	if !foundDiagnostic {
+	if !recordOutputs(outputRecords)["bootc: non-progress diagnostic line"] {
 		t.Fatalf("Non-progress bootc output should still be logged, got %v", outputRecords)
 	}
 }
