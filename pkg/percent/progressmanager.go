@@ -16,6 +16,12 @@ import (
 	"github.com/ublue-os/uupd/pkg/session"
 )
 
+const (
+	// bootc emits far more progress events than should become log records.
+	progressLogInterval = 5 * time.Second
+	progressLogPercent  = 10.0
+)
+
 type Incrementer struct {
 	DoneIncrements int
 	MaxIncrements  int
@@ -24,6 +30,12 @@ type Incrementer struct {
 	ProgressWriter  progress.Writer
 	PTracker        StepTracker
 	currentModule   string
+
+	// Rate limiting state for the non-TUI path. now is injectable for tests.
+	currentStage      string
+	lastProgressLog   time.Time
+	lastLoggedPercent float64
+	now               func() time.Time
 }
 
 type StepTracker struct {
@@ -105,14 +117,30 @@ func NewProgressWriter() progress.Writer {
 	return pw
 }
 
-func (it *Incrementer) ReportStatusChange(title string, description string) {
+// ReportStatusChange reports progress to the active UI. With the bar disabled it
+// logs a rate-limited record and returns whether one was emitted.
+func (it *Incrementer) ReportStatusChange(title string, description string) bool {
 	if !it.ProgressEnabled {
+		starting := it.currentModule != title
+		if starting {
+			it.currentModule = title
+		}
+
+		percent := it.OverallPercent()
+		if !starting && !it.shouldLogProgress(description, percent) {
+			return false
+		}
+
+		now := it.timeNow()
+		it.currentStage = description
+		it.lastProgressLog = now
+		it.lastLoggedPercent = percent
+
 		status := "running"
 		output := fmt.Sprintf("Updating %s (%s)", title, description)
-		if it.currentModule != title {
+		if starting {
 			status = "starting"
 			output = fmt.Sprintf("%s module is starting.", title)
-			it.currentModule = title
 		}
 		slog.Info("Updating",
 			slog.String("module", strings.ToLower(title)),
@@ -123,9 +151,9 @@ func (it *Incrementer) ReportStatusChange(title string, description string) {
 			slog.Int("progress", it.CurrentStep()),
 			slog.Int("total", it.MaxIncrements),
 			slog.Float64("step_progress", it.PTracker.Progress),
-			slog.Float64("overall", it.OverallPercent()),
+			slog.Float64("overall", percent),
 		)
-		return
+		return true
 	}
 	// Only System (Bootc) updates have proper progress reporting
 	if title == "System" {
@@ -141,6 +169,24 @@ func (it *Incrementer) ReportStatusChange(title string, description string) {
 	it.ProgressWriter.SetMessageLength(len(finalMessage))
 	it.PTracker.Tracker.UpdateMessage(finalMessage)
 	it.PTracker.Tracker.SetValue(int64(it.PTracker.Progress))
+	return false
+}
+
+// shouldLogProgress always allows stage changes, then throttles by time or
+// overall progress.
+func (it *Incrementer) shouldLogProgress(description string, percent float64) bool {
+	if description != it.currentStage {
+		return true
+	}
+	return it.timeNow().Sub(it.lastProgressLog) >= progressLogInterval ||
+		math.Abs(percent-it.lastLoggedPercent) >= progressLogPercent
+}
+
+func (it *Incrementer) timeNow() time.Time {
+	if it.now == nil {
+		return time.Now()
+	}
+	return it.now()
 }
 
 func ResetOscProgress() {
@@ -176,6 +222,7 @@ func NewIncrementer(progressEnabled bool, max int) Incrementer {
 		ProgressEnabled: progressEnabled,
 		ProgressWriter:  pw,
 		PTracker:        tracker,
+		now:             time.Now,
 	}
 }
 
