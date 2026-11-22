@@ -1,0 +1,79 @@
+name: e2e testing
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  merge_group:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+    inputs:
+      image:
+        description: OCI image ref or short name to test
+        type: string
+        default: bluefin
+      suite:
+        description: Suite to run
+        type: choice
+        options:
+          - core
+          - cli
+          - extended
+        default: core
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    name: Resolve e2e matrix
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.resolve.outputs.include }}
+    steps:
+      - name: Resolve matrix
+        id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          IMAGE: ${{ inputs.image }}
+          SUITE: ${{ inputs.suite }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          if os.environ["EVENT"] == "workflow_dispatch":
+              include = [{"image": os.environ["IMAGE"], "suite": os.environ["SUITE"]}]
+          else:
+              rawhide = "quay.io/fedora/fedora-bootc:rawhide"
+              include = [
+                  {"image": "bluefin", "suite": "core"},
+                  {"image": "aurora", "suite": "core"},
+                  {"image": "bazzite", "suite": "core"},
+                  {"image": rawhide, "suite": "core"},
+                  {"image": rawhide, "suite": "cli"},
+                  {"image": rawhide, "suite": "extended"},
+              ]
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write("include=" + json.dumps(include) + "\n")
+          PY
+
+  e2e:
+    name: E2E ${{ matrix.suite }} on ${{ matrix.image }}
+    needs: matrix
+    uses: ./.github/workflows/e2e.yml
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.matrix.outputs.include) }}
+    with:
+      image: ${{ matrix.image }}
+      suite: ${{ matrix.suite }}

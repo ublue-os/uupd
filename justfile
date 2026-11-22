@@ -107,3 +107,34 @@ test-coverage directory="":
 	else
 		go test -v -coverprofile=$t ./... $@ && go tool cover -html=$t && unlink $t
 	fi
+
+e2e-list:
+	./tests/e2e/e2e.sh --list
+
+e2e-list-suites:
+	./tests/e2e/e2e.sh --list-suites
+
+e2e:
+	#!/usr/bin/env bash
+	set -eou pipefail
+	./tests/e2e/e2e.sh --all
+
+e2e-cli name="quay.io/fedora/fedora-bootc:rawhide":
+	#!/usr/bin/env bash
+	set -eou pipefail
+	./tests/e2e/e2e.sh --suite cli "{{name}}"
+
+e2e-extended name="quay.io/fedora/fedora-bootc:rawhide":
+	#!/usr/bin/env bash
+	set -eou pipefail
+	./tests/e2e/e2e.sh --suite extended "{{name}}"
+
+e2e-image name="" suite="core":
+	#!/usr/bin/env bash
+	set -eou pipefail
+	if [ "{{name}}" = "" ]; then
+		echo "Usage: just e2e-image <image-name> [suite]"
+		./tests/e2e/e2e.sh --list
+		exit 1
+	fi
+	./tests/e2e/e2e.sh --suite "{{suite}}" "{{name}}"
