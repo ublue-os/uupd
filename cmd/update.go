@@ -132,11 +132,12 @@ func Update(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	releaseSleepInhibit, err := session.InhibitSleep()
+	releaseSuspendInhibit, err := session.InhibitSuspend()
+	if releaseSuspendInhibit != nil {
+		defer releaseSuspendInhibit()
+	}
 	if err != nil {
 		slog.Warn("Failed to inhibit suspend during update", slog.Any("error", err))
-	} else {
-		defer releaseSleepInhibit()
 	}
 
 	hwCheck := conf.Checks.Hardware.Enable
