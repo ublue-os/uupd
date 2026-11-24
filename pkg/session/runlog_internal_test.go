@@ -228,6 +228,25 @@ func TestPkexecArgsPreservesTheProgramPath(t *testing.T) {
 	}
 }
 
+func runWrapper(t *testing.T, args []string, env []string) []byte {
+	t.Helper()
+	for attempt := 0; attempt < 3; attempt++ {
+		command := exec.Command(args[0], args[1:]...)
+		if env != nil {
+			command.Env = env
+		}
+		out, err := runLogWithDeadline(t, command, 30*time.Second)
+		if err == nil {
+			return out
+		}
+		if !strings.Contains(err.Error(), "text file busy") || attempt == 2 {
+			t.Fatalf("Expected no error, got %v (output: %q)", err, out)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return nil
+}
+
 func TestWrapperArgsPreserveTheProgramPathAsArgZero(t *testing.T) {
 	t.Parallel()
 
@@ -247,12 +266,7 @@ func TestWrapperArgsPreserveTheProgramPathAsArgZero(t *testing.T) {
 	}
 
 	args := wrapperArgs([]string{linkPath, "upgrade", "-y"})
-	command := exec.Command(args[0], args[1:]...)
-
-	out, err := runLogWithDeadline(t, command, 30*time.Second)
-	if err != nil {
-		t.Fatalf("Expected no error, got %v (output: %q)", err, out)
-	}
+	out := runWrapper(t, args, nil)
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	if len(lines) != 3 {
@@ -285,13 +299,7 @@ func TestEnvWrapperArgsSetEnvAndPreserveArgZero(t *testing.T) {
 	}
 
 	args := envWrapperArgs([]string{"HOMEBREW_NO_SUDO=1"}, []string{linkPath, "upgrade", "-y"})
-	command := exec.Command(args[0], args[1:]...)
-	command.Env = []string{}
-
-	out, err := runLogWithDeadline(t, command, 30*time.Second)
-	if err != nil {
-		t.Fatalf("Expected no error, got %v (output: %q)", err, out)
-	}
+	out := runWrapper(t, args, []string{})
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	expected := []string{linkPath, "1", "upgrade", "-y"}

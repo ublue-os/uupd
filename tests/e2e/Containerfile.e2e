@@ -1,0 +1,26 @@
+ARG BASE_IMAGE
+
+FROM docker.io/library/golang:1.26 AS builder
+
+WORKDIR /src
+COPY . .
+
+RUN make build && make install-bin install-units DESTDIR=/staging && \
+    (cd tests/e2e/jsoncheck && CGO_ENABLED=0 go build -o /staging/usr/bin/jsoncheck .)
+
+FROM ${BASE_IMAGE} AS base
+
+COPY --from=builder /staging/ /
+
+# bcvk installs the image and drives the tests over SSH.
+# https://github.com/bootc-dev/bcvk/issues/236
+RUN systemctl enable sshd.service
+
+FROM base AS upgraded
+RUN mkdir -p /usr/share/uupd-e2e && touch /usr/share/uupd-e2e/upgraded
+
+FROM upgraded AS upgraded2
+RUN touch /usr/share/uupd-e2e/upgraded2
+
+FROM upgraded2 AS upgraded3
+RUN touch /usr/share/uupd-e2e/upgraded3

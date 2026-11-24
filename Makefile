@@ -40,7 +40,8 @@ SYSCONFDIR ?= /etc
 DESTDIR ?=
 
 .PHONY: all build install install-bin install-units install-config uninstall \
-	test test-cover vet check lint fmt fmt-check tidy vendor clean help
+	test test-cover e2e e2e-cli e2e-extended e2e-list e2e-list-suites e2e-image vet check lint fmt fmt-check tidy \
+	vendor clean help
 
 all: build
 
@@ -96,6 +97,31 @@ test: ## Run the unit tests
 test-cover: | $(OUTPUT_DIR) ## Run tests and write output/coverage.out
 	$(GO) test -coverprofile=$(OUTPUT_DIR)/coverage.out $(GO_PACKAGES)
 	$(GO) tool cover -func=$(OUTPUT_DIR)/coverage.out
+
+IMAGE ?=
+e2e: ## Run e2e tests for every supported image (rootless podman + libvirt)
+	./tests/e2e/e2e.sh --all
+
+E2E_IMAGE ?= quay.io/fedora/fedora-bootc:rawhide
+e2e-cli: ## Run the cli e2e suite: make e2e-cli E2E_IMAGE=bluefin
+	./tests/e2e/e2e.sh --suite cli "$(E2E_IMAGE)"
+
+e2e-extended: ## Run the extended e2e suite: make e2e-extended E2E_IMAGE=bluefin
+	./tests/e2e/e2e.sh --suite extended "$(E2E_IMAGE)"
+
+e2e-list: ## List e2e images
+	./tests/e2e/e2e.sh --list
+
+e2e-list-suites: ## List e2e suites
+	./tests/e2e/e2e.sh --list-suites
+
+e2e-image: ## Run e2e for one image: make e2e-image IMAGE=bluefin SUITE=core
+	@if [ -z "$(IMAGE)" ]; then \
+		echo "Usage: make e2e-image IMAGE=<name> SUITE=<core|cli|extended>"; \
+		./tests/e2e/e2e.sh --list; \
+		exit 1; \
+	fi
+	./tests/e2e/e2e.sh --suite "$(or $(SUITE),core)" "$(IMAGE)"
 
 vet: ## Run go vet
 	$(GO) vet $(GO_VET_FLAGS) $(GO_PACKAGES)

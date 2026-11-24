@@ -127,6 +127,8 @@ The `Makefile` is the primary interface for building, testing and installing. Ru
 - `make build` builds the binary into `output/uupd`
 - `make test` runs the unit tests (`go test -v -cover ./...`)
 - `make test-cover` writes a coverage profile to `output/coverage.out` and prints the coverage summary
+- `make e2e` / `make e2e-image IMAGE=<name>` run the bootc VM end-to-end suite (see below)
+- `make e2e-cli` / `make e2e-extended` run the other suites (see below)
 - `make vet` runs `go vet ./...`
 - `make check` runs both `vet` and `test`
 - `make fmt` formats the Go sources, and `make fmt-check` verifies formatting
@@ -173,6 +175,50 @@ make install PREFIX=/usr/local
 > The supplied systemd units call `/usr/bin/uupd`, so a non-default `PREFIX` also requires adjusting the units.
 
 `sudo make uninstall` removes the installed files but preserves the user override in `/etc/uupd`.
+
+## End-to-end tests
+
+The e2e suite builds `uupd` in a builder stage inside the container image,
+installs it into a bootc base image, boots that image in a VM with
+[bcvk](https://github.com/bootc-dev/bcvk), rebuilds the same tag as an upgraded
+image, and checks that `uupd` stages the upgrade and that the VM reboots into
+it.
+
+Suites (`make e2e-list-suites`):
+
+- `core` — `update-check` / `is-img-outdated`, `--dry-run` safety, staging
+  without `--apply`, the reboot, digest and payload verification, idempotent
+  re-runs.
+- `cli` — non-root guards, config file/env/flag precedence, `--force`, `--ci`
+  and `CI=true`, lockfile contention, JSON and log-file output, module command
+  construction and graceful degradation. Needs no image upgrade.
+- `extended` — `core` plus `uupd --apply`, `bootc rollback`, and the shipped
+  `uupd.service` / `uupd.timer` units.
+
+Supported images (`make e2e-list`):
+
+- `bluefin`, `bazzite`, `aurora` (`ghcr.io/ublue-os/...:stable`)
+- `fedora-bootc-rawhide` (`quay.io/fedora/fedora-bootc:rawhide`)
+
+Requirements: Linux with KVM, an unprivileged user with rootless `podman`
+and libvirt session access (`LIBVIRT_DEFAULT_URI=qemu:///session` is the
+default), `virtiofsd`, OVMF/edk2 and `bcvk` (≥ 0.22 for `--update-from-host`).
+
+```
+make e2e-image IMAGE=bluefin                    # core on one image
+make e2e                                        # core on every image
+make e2e-cli                                    # cli suite on rawhide
+make e2e-extended                               # extended suite on rawhide
+make e2e-image IMAGE=bluefin SUITE=cli          # any suite on any image
+E2E_SUITE=extended ./tests/e2e/e2e.sh bluefin
+KEEP_VM=1 ./tests/e2e/e2e.sh bluefin            # leave the VM running
+```
+
+CI runs `core` on every PR for bluefin, aurora, bazzite and rawhide, plus
+`cli` and `extended` on rawhide. The matrix lives in
+`.github/workflows/e2e-ci.yml` and calls the reusable
+`.github/workflows/e2e.yml`, which accepts `image`, `suite` and `test_ref`
+inputs so other workflows can run the same suite.
 
 ## Development System Installation
 
