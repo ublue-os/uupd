@@ -85,7 +85,7 @@ func battery(conn *dbus.Conn, min int) Info {
 	if err != nil {
 		return Info{
 			name,
-			err,
+			nil,
 		}
 	}
 	profile, ok := variant.Value().(string)
