@@ -22,7 +22,7 @@ var ErrMeteredNetwork = errors.New("network is metered")
 func Hardware(conn *dbus.Conn) []Info {
 	var checks []Info
 	conf := config.Get()
-	checks = append(checks, battery(conn, conf.Checks.Hardware.BatteryMinPercent))
+	checks = append(checks, battery(busProperty(conn), conf.Checks.Hardware.BatteryMinPercent))
 	checks = append(checks, network(conn, conf.Checks.Hardware.NetMaxBytes))
 	checks = append(checks, cpu(conf.Checks.Hardware.CpuMaxPercent))
 	checks = append(checks, memory(conf.Checks.Hardware.MemMaxPercent))
@@ -30,11 +30,32 @@ func Hardware(conn *dbus.Conn) []Info {
 	return checks
 }
 
-func battery(conn *dbus.Conn, min int) Info {
+type propertyGetter func(dest string, path dbus.ObjectPath, property string) (dbus.Variant, error)
+
+func busProperty(conn *dbus.Conn) propertyGetter {
+	return func(dest string, path dbus.ObjectPath, property string) (dbus.Variant, error) {
+		return conn.Object(dest, path).GetProperty(property)
+	}
+}
+
+func serviceMissing(err error) bool {
+	var dbusErr dbus.Error
+	if !errors.As(err, &dbusErr) {
+		return false
+	}
+	switch dbusErr.Name {
+	case "org.freedesktop.DBus.Error.ServiceUnknown",
+		"org.freedesktop.DBus.Error.NameHasNoOwner",
+		"org.freedesktop.systemd1.UnitMasked":
+		return true
+	}
+	return false
+}
+
+func battery(get propertyGetter, min int) Info {
 	const name string = "Battery"
-	upower := conn.Object("org.freedesktop.UPower", "/org/freedesktop/UPower")
 	// first, check if the device is running on battery
-	variant, err := upower.GetProperty("org.freedesktop.UPower.OnBattery")
+	variant, err := get("org.freedesktop.UPower", "/org/freedesktop/UPower", "org.freedesktop.UPower.OnBattery")
 	if err != nil {
 		return Info{
 			name,
@@ -57,8 +78,7 @@ func battery(conn *dbus.Conn, min int) Info {
 		}
 	}
 
-	dev := conn.Object("org.freedesktop.UPower", "/org/freedesktop/UPower/devices/DisplayDevice")
-	variant, err = dev.GetProperty("org.freedesktop.UPower.Device.Percentage")
+	variant, err = get("org.freedesktop.UPower", "/org/freedesktop/UPower/devices/DisplayDevice", "org.freedesktop.UPower.Device.Percentage")
 	if err != nil {
 		return Info{
 			name,
@@ -80,12 +100,17 @@ func battery(conn *dbus.Conn, min int) Info {
 	}
 
 	// check if user is running on low power mode
-	powerProfiles := conn.Object("org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles")
-	variant, err = powerProfiles.GetProperty("org.freedesktop.UPower.PowerProfiles.ActiveProfile")
-	if err != nil {
+	variant, err = get("org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles", "org.freedesktop.UPower.PowerProfiles.ActiveProfile")
+	if serviceMissing(err) {
 		return Info{
 			name,
 			nil,
+		}
+	}
+	if err != nil {
+		return Info{
+			name,
+			err,
 		}
 	}
 	profile, ok := variant.Value().(string)
