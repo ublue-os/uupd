@@ -99,38 +99,30 @@ func battery(get propertyGetter, min int) Info {
 		}
 	}
 
+	return Info{
+		name,
+		powerSaver(get),
+	}
+}
+
+func powerSaver(get propertyGetter) error {
 	// check if user is running on low power mode
-	variant, err = get("org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles", "org.freedesktop.UPower.PowerProfiles.ActiveProfile")
+	variant, err := get("org.freedesktop.UPower.PowerProfiles", "/org/freedesktop/UPower/PowerProfiles", "org.freedesktop.UPower.PowerProfiles.ActiveProfile")
 	if serviceMissing(err) {
-		return Info{
-			name,
-			nil,
-		}
+		return nil
 	}
 	if err != nil {
-		return Info{
-			name,
-			err,
-		}
+		return err
 	}
 	profile, ok := variant.Value().(string)
 	if !ok {
-		return Info{
-			name,
-			fmt.Errorf("unable to get power profile from: %v", variant),
-		}
+		return fmt.Errorf("unable to get power profile from: %v", variant)
 	}
 	if profile == "power-saver" {
-		return Info{
-			name,
-			fmt.Errorf("current power profile is set to 'power-saver'"),
-		}
+		return fmt.Errorf("current power profile is set to 'power-saver'")
 	}
 
-	return Info{
-		name,
-		nil,
-	}
+	return nil
 }
 
 func network_once(conn *dbus.Conn, max uint64) error {
