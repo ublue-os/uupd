@@ -8,6 +8,12 @@
             "net-max-bytes": 700000
         }
     },
+    "notifications": {
+        "outdated-image": {
+            "disable": false,
+            "threshold-days": 30
+        }
+    },
     "modules": {
         "brew": {
             "disable": false

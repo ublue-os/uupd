@@ -58,6 +58,32 @@ func TestFwupdDefaultsAndEnv(t *testing.T) {
 	}
 }
 
+func TestOutdatedNoticeDefaultsAndEnv(t *testing.T) {
+	if err := config.InitConfig(config.DEFAULT_PATH); err != nil {
+		t.Fatalf("unable to init config: %v", err)
+	}
+	conf := config.Get()
+	if conf.Notifications.OutdatedImage.Disable {
+		t.Fatal("outdated image notice must be enabled by default")
+	}
+	if conf.Notifications.OutdatedImage.ThresholdDays != 30 {
+		t.Fatalf("unexpected default threshold: %d", conf.Notifications.OutdatedImage.ThresholdDays)
+	}
+
+	t.Setenv("UUPD_DISABLE_OUTDATED_NOTICE", "true")
+	t.Setenv("UUPD_OUTDATED_THRESHOLD_DAYS", "60")
+	if err := config.InitConfig(config.DEFAULT_PATH); err != nil {
+		t.Fatalf("unable to init config: %v", err)
+	}
+	conf = config.Get()
+	if !conf.Notifications.OutdatedImage.Disable {
+		t.Fatal("environment variable precedence failed for UUPD_DISABLE_OUTDATED_NOTICE")
+	}
+	if conf.Notifications.OutdatedImage.ThresholdDays != 60 {
+		t.Fatalf("environment variable precedence failed for UUPD_OUTDATED_THRESHOLD_DAYS: %d", conf.Notifications.OutdatedImage.ThresholdDays)
+	}
+}
+
 func TestConfigLocation(t *testing.T) {
 	newConfig := `{
 			"modules": {

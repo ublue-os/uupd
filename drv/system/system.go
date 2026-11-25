@@ -96,9 +96,7 @@ func (up SystemUpdater) Outdated() (bool, error) {
 	if err != nil {
 		return false, nil
 	}
-	oneMonthAgo := time.Now().AddDate(0, -1, 0).UTC()
-
-	return timestamp.UTC().Before(oneMonthAgo), nil
+	return timestamp.UTC().Before(OutdatedCutoff(up.Config.OutdatedThresholdDays)), nil
 }
 
 func (up SystemUpdater) Update(tracker *percent.Incrementer) (*[]CommandOutput, error) {
@@ -197,11 +195,12 @@ func (up SystemUpdater) Steps() int {
 func (up SystemUpdater) New(config UpdaterInitConfiguration) (SystemUpdater, error) {
 	conf := appConfig.Get().Modules.System
 	up.Config = DriverConfiguration{
-		Title:       "System",
-		Description: "Bootc",
-		Enabled:     !config.Ci,
-		DryRun:      config.DryRun,
-		Environment: config.Environment,
+		Title:                 "System",
+		Description:           "Bootc",
+		Enabled:               !config.Ci,
+		DryRun:                config.DryRun,
+		OutdatedThresholdDays: appConfig.Get().Notifications.OutdatedImage.ThresholdDays,
+		Environment:           config.Environment,
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.BinaryPath = conf.BootcBinary

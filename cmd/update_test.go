@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/ublue-os/uupd/drv/generic"
@@ -42,6 +43,17 @@ func findRecord(records []map[string]any, status string) map[string]any {
 		}
 	}
 	return nil
+}
+
+func TestOutdatedWarningIncludesDayCount(t *testing.T) {
+	withDays := outdatedWarning(45)
+	if !strings.Contains(withDays, "45 days") {
+		t.Fatalf("expected day count in warning, got %q", withDays)
+	}
+	withMonth := outdatedWarning(0)
+	if !strings.Contains(withMonth, "month") {
+		t.Fatalf("expected month fallback in warning, got %q", withMonth)
+	}
 }
 
 func TestRunModuleStructuredOutput(t *testing.T) {

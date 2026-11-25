@@ -49,6 +49,13 @@ type Config struct {
 			CpuMaxPercent     int    `mapstructure:"cpu-max-percent"`
 		} `mapstructure:"hardware"`
 	} `mapstructure:"checks"`
+
+	Notifications struct {
+		OutdatedImage struct {
+			Disable       bool `mapstructure:"disable"`
+			ThresholdDays int  `mapstructure:"threshold-days"`
+		} `mapstructure:"outdated-image"`
+	} `mapstructure:"notifications"`
 }
 
 const DEFAULT_PATH string = "/etc/uupd/config.json"
@@ -84,6 +91,12 @@ func defaults() {
 	d("checks.hardware.net-max-bytes", 700000)
 	d("checks.hardware.mem-max-percent", 90)
 	d("checks.hardware.cpu-max-percent", 50)
+
+	d("notifications.outdated-image.disable", false)
+	d("notifications.outdated-image.threshold-days", 30)
+
+	_ = e("notifications.outdated-image.disable", "UUPD_DISABLE_OUTDATED_NOTICE")
+	_ = e("notifications.outdated-image.threshold-days", "UUPD_OUTDATED_THRESHOLD_DAYS")
 
 	_ = e("checks.hardware.bat-min-percent", "UUPD_BATTERY_MIN_PERCENT")
 	_ = e("checks.hardware.net-max-bytes", "UUPD_NETWORK_MAX_BYTES")

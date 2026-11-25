@@ -78,7 +78,7 @@ var (
 
 	imageOutdatedCmd = &cobra.Command{
 		Use:           "is-img-outdated",
-		Short:         "Checks if the current booted image is over 1 month old, returns exit code 77 if true.",
+		Short:         "Checks if the current booted image is older than the configured threshold (30 days by default), returns exit code 77 if true.",
 		PreRun:        assertRoot,
 		RunE:          ImageOutdated,
 		SilenceErrors: true,

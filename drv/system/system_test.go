@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/system"
@@ -83,6 +84,34 @@ func TestCheckDryRun(t *testing.T) {
 	}
 	if !updateAvailable {
 		t.Fatalf("Expected update to be available in dry-run mode")
+	}
+}
+
+func TestOutdatedUsesConfiguredThreshold(t *testing.T) {
+	timestamp := time.Now().UTC().AddDate(0, 0, -45).Format(time.RFC3339Nano)
+	status := fmt.Sprintf(`{"status":{"booted":{"incompatible":false,"image":{"timestamp":%q}}}}`, timestamp)
+	binary := writeFakeBinary(t, status, 0)
+
+	updater := InitBaseConfig()
+	updater.Config.DryRun = false
+	updater.BinaryPath = binary
+
+	updater.Config.OutdatedThresholdDays = 30
+	outdated, err := updater.Outdated()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !outdated {
+		t.Fatal("expected a 45 day old image to be outdated at a 30 day threshold")
+	}
+
+	updater.Config.OutdatedThresholdDays = 60
+	outdated, err = updater.Outdated()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if outdated {
+		t.Fatal("expected a 45 day old image to be current at a 60 day threshold")
 	}
 }
 

@@ -65,6 +65,12 @@ The default configuration is installed at `/usr/lib/uupd/config.json`. To overri
             "net-max-bytes": 700000
         }
     },
+    "notifications": {
+        "outdated-image": {
+            "disable": false,
+            "threshold-days": 30
+        }
+    },
     "modules": {
         "brew": {
             "disable": false
@@ -109,6 +115,20 @@ The default configuration is installed at `/usr/lib/uupd/config.json`. To overri
 - `cpu-min-percent`: maxmium cpu load percentage before checks fail
 - `mem-max-percent`: maximum memory usage percentage before checks fail
 - `net-max-bytes`: maximum amount of bytes transferred over the network before checks fail
+
+### `notifications.outdated-image`
+
+- `disable`: skip the month old image notice without disabling automatic updates (`false` by default)
+- `threshold-days`: how old the booted image must be before the notice appears (30 days by default)
+
+Both keys can also be set with `UUPD_DISABLE_OUTDATED_NOTICE` and `UUPD_OUTDATED_THRESHOLD_DAYS`.
+
+Notes:
+
+- The default is 30 days rather than one calendar month, so the notice can appear at a different time.
+- A bad value or a mistyped key makes uupd exit before it can update, as with any invalid config.
+- Older uupd versions reject a config containing this block. Do not ship it in an image before the new uupd is installed.
+- A `threshold-days` value of 0 or less falls back to one calendar month. `is-img-outdated` ignores `disable` and always reports image age.
 
 
 # Troubleshooting

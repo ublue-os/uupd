@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/ublue-os/uupd/pkg/session"
 )
@@ -70,14 +71,22 @@ func exitCode(err error) int {
 }
 
 type DriverConfiguration struct {
-	Title           string
-	Description     string
-	Enabled         bool
-	MultiUser       bool
-	DryRun          bool
-	Environment     EnvironmentMap `json:"-"`
-	Logger          *slog.Logger   `json:"-"`
-	UserDescription *string
+	Title                 string
+	Description           string
+	Enabled               bool
+	MultiUser             bool
+	DryRun                bool
+	OutdatedThresholdDays int
+	Environment           EnvironmentMap `json:"-"`
+	Logger                *slog.Logger   `json:"-"`
+	UserDescription       *string
+}
+
+func OutdatedCutoff(days int) time.Time {
+	if days <= 0 {
+		return time.Now().AddDate(0, -1, 0).UTC()
+	}
+	return time.Now().AddDate(0, 0, -days).UTC()
 }
 
 type UpdateDriver interface {

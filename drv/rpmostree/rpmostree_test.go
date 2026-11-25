@@ -5,6 +5,7 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/ublue-os/uupd/drv/generic"
 	"github.com/ublue-os/uupd/drv/rpmostree"
@@ -97,6 +98,34 @@ exit 1
 `, rawOutput, skopeoExitCode, inspectOutput, skopeoExitCode)
 
 	return writeFakeScript(t, rpmOstreeScript), writeFakeScript(t, skopeoScript)
+}
+
+func TestOutdatedUsesConfiguredThreshold(t *testing.T) {
+	timestamp := time.Now().UTC().AddDate(0, 0, -45).Unix()
+	status := fmt.Sprintf(`{"deployments":[{"timestamp":%d}]}`, timestamp)
+	binary := writeFakeBinary(t, status, 0)
+
+	updater := InitBaseConfig()
+	updater.Config.DryRun = false
+	updater.BinaryPath = binary
+
+	updater.Config.OutdatedThresholdDays = 30
+	outdated, err := updater.Outdated()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !outdated {
+		t.Fatal("expected a 45 day old image to be outdated at a 30 day threshold")
+	}
+
+	updater.Config.OutdatedThresholdDays = 60
+	outdated, err = updater.Outdated()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if outdated {
+		t.Fatal("expected a 45 day old image to be current at a 60 day threshold")
+	}
 }
 
 func TestCheckDryRun(t *testing.T) {

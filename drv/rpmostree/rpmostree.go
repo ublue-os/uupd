@@ -72,9 +72,7 @@ func (up RpmOstreeUpdater) Outdated() (bool, error) {
 		return false, err
 	}
 	timestamp = time.Unix(status.Deployments[0].Timestamp, 0).UTC()
-	oneMonthAgo := time.Now().AddDate(0, -1, 0).UTC()
-
-	return timestamp.UTC().Before(oneMonthAgo), nil
+	return timestamp.UTC().Before(OutdatedCutoff(up.Config.OutdatedThresholdDays)), nil
 }
 
 func (up RpmOstreeUpdater) Staged() (bool, error) {
@@ -169,11 +167,12 @@ func (up RpmOstreeUpdater) Steps() int {
 func (up RpmOstreeUpdater) New(config UpdaterInitConfiguration) (RpmOstreeUpdater, error) {
 	conf := appConfig.Get().Modules.System
 	up.Config = DriverConfiguration{
-		Title:       "System",
-		Description: "rpm-ostree",
-		Enabled:     !config.Ci,
-		DryRun:      config.DryRun,
-		Environment: config.Environment,
+		Title:                 "System",
+		Description:           "rpm-ostree",
+		Enabled:               !config.Ci,
+		DryRun:                config.DryRun,
+		OutdatedThresholdDays: appConfig.Get().Notifications.OutdatedImage.ThresholdDays,
+		Environment:           config.Environment,
 	}
 	up.Config.Logger = config.Logger.With(slog.String("module", strings.ToLower(up.Config.Title)))
 	up.BinaryPath = conf.RpmOstreeBinary

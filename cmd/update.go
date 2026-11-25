@@ -111,6 +111,13 @@ func planSystemModule(
 	return run, updateAvailable
 }
 
+func outdatedWarning(days int) string {
+	if days <= 0 {
+		return "The booted image is over a month old. Consider rebooting or running updates manually"
+	}
+	return fmt.Sprintf("The booted image is over %d days old. Consider rebooting or running updates manually", days)
+}
+
 func Update(cmd *cobra.Command, args []string) error {
 	conf := config.Get()
 	modules := conf.Modules
@@ -274,17 +281,19 @@ func Update(cmd *cobra.Command, args []string) error {
 
 	var outputs = []drv.CommandOutput{}
 
-	systemOutdated, err := mainSystemDriver.Outdated()
-	if err != nil {
-		slog.Error("Failed checking if system is out of date")
-	}
-	if systemOutdated {
-		const OUTDATED_WARNING = "There hasn't been an update in over a month. Consider rebooting or running updates manually"
-		err := session.Notify(users, "System Warning", OUTDATED_WARNING, "critical")
+	if !conf.Notifications.OutdatedImage.Disable {
+		systemOutdated, err := mainSystemDriver.Outdated()
 		if err != nil {
-			slog.Error("Failed showing warning notification")
+			slog.Error("Failed checking if system is out of date")
 		}
-		slog.Warn(OUTDATED_WARNING)
+		if systemOutdated {
+			warning := outdatedWarning(conf.Notifications.OutdatedImage.ThresholdDays)
+			err := session.Notify(users, "System Warning", warning, "critical")
+			if err != nil {
+				slog.Error("Failed showing warning notification")
+			}
+			slog.Warn(warning)
+		}
 	}
 
 	if mainSystemDriverConfig.Enabled {
