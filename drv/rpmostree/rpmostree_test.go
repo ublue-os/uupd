@@ -110,6 +110,18 @@ func TestCheckDryRun(t *testing.T) {
 	}
 }
 
+func TestUpdateDryRunDoesNotExecuteRpmOstree(t *testing.T) {
+	updater := InitBaseConfig()
+	updater.BinaryPath = writeFakeBinary(t, "unexpected execution", 77)
+	output, err := updater.Update(nil)
+	if err != nil {
+		t.Fatalf("Dry run executed rpm-ostree: %v", err)
+	}
+	if output == nil || len(*output) != 0 {
+		t.Fatalf("Dry run should return empty command output, got %v", output)
+	}
+}
+
 func TestCheckUpdatesAvailable(t *testing.T) {
 	binary := writeFakeBinary(t, "", 0)
 	updater := InitBaseConfig()

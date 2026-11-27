@@ -138,6 +138,9 @@ func ClassifyUpdateError(output string) string {
 
 func (up RpmOstreeUpdater) Update(_tracker *percent.Incrementer) (*[]CommandOutput, error) {
 	var finalOutput = []CommandOutput{}
+	if up.Config.DryRun {
+		return &finalOutput, nil
+	}
 	binaryPath := up.BinaryPath
 
 	cli := []string{binaryPath, "upgrade"}
